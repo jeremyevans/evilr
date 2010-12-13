@@ -1,0 +1,10 @@
+/ext/evilr/Makefile
+/ext/evilr/evilr.o
+/ext/evilr/evilr.so
+/rdoc
+/evilr-*.gem
+*.core
+/pkg
+/lib/1.*
+/lib/evilr.so
+/tmp
