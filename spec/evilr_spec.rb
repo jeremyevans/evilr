@@ -1,8 +1,36 @@
 $:.unshift(File.join(File.dirname(File.dirname(File.expand_path(__FILE__)))), 'lib')
 require 'evilr'
 
-describe "Object#share_singleton_class" do
+describe "Object#class=" do
   after{GC.start} # GC after spec to make sure nothing broke
+  before do
+    @o = Class.new.new
+    @c = Class.new
+  end
+
+  specify "should make given object this object's class" do
+    @o.should_not be_a_kind_of(@c)
+    @o.class = @c
+    @o.should be_a_kind_of(@c)
+  end
+
+  specify "should raise an exception for immediate objects" do
+    [0, :a, true, false, nil].each do |x|
+      proc{x.class = @c}.should raise_error(TypeError)
+    end
+  end
+
+  specify "should raise an exception if a class is not used as an argument" do
+    proc{@o.class = @o}.should raise_error(TypeError)
+  end
+
+  specify "should raise an exception if a class used is not the same underlying type" do
+    proc{@o.class = Hash}.should raise_error(TypeError)
+  end
+end
+
+describe "Object#share_singleton_class" do
+  after{GC.start}
   before do
     @o1 = Class.new.new
     @o2 = Class.new.new
