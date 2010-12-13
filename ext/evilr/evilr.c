@@ -13,7 +13,7 @@ static VALUE evilr_share_singleton_class(VALUE self, VALUE other) {
   /* Create singleton class to be shared if it doesn't exist */
   (void)rb_singleton_class(other);
 
-  ((struct RBasic*)self)->klass = ((struct RBasic*)other)->klass;
+  RBASIC(self)->klass = RBASIC(other)->klass;
   return self;
 }
 
