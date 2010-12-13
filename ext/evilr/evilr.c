@@ -17,6 +17,13 @@ static VALUE evilr_share_singleton_class(VALUE self, VALUE other) {
   return self;
 }
 
+static VALUE evilr_unfreeze(VALUE self) {
+  evilr__check_immediate(self);
+  FL_UNSET(self, FL_FREEZE);
+  return self;
+}
+
 void Init_evilr(void) {
   rb_define_method(rb_cObject, "share_singleton_class", evilr_share_singleton_class, 1);
+  rb_define_method(rb_cObject, "unfreeze", evilr_unfreeze, 0);
 }
