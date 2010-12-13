@@ -30,6 +30,10 @@ describe "Object#share_singleton_class" do
       proc{@o1.share_singleton_class(x)}.should raise_error(TypeError)
     end
   end
+
+  specify "should return self" do
+    @o2.share_singleton_class(@o1).should equal(@o2)
+  end
 end
 
 describe "Object#unfreeze" do
