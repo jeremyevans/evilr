@@ -60,6 +60,12 @@ describe "Object#unfreeze" do
     @o.instance_variable_get(:@a).should == 1
   end
 
+  specify "should be no-op for immediate objects" do
+    [0, :a, true, false, nil].each do |x|
+      proc{x.unfreeze}.should_not raise_error
+    end
+  end
+
   specify "should return self" do
     @o.unfreeze.should equal(@o)
   end

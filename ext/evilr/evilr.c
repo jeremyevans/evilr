@@ -18,7 +18,6 @@ static VALUE evilr_share_singleton_class(VALUE self, VALUE other) {
 }
 
 static VALUE evilr_unfreeze(VALUE self) {
-  evilr__check_immediate(self);
   FL_UNSET(self, FL_FREEZE);
   return self;
 }
