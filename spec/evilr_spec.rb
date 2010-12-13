@@ -66,7 +66,25 @@ describe "Object#unfreeze" do
     end
   end
 
+  specify "should not be allowed if $SAFE > 0" do
+    x = @o
+    Thread.new do
+      $SAFE  = 1
+      proc{x.unfreeze}.should raise_error(SecurityError)
+    end.join
+  end
+
   specify "should return self" do
     @o.unfreeze.should equal(@o)
+  end
+end
+
+describe "Kernel#set_safe_level" do
+  after{GC.start}
+
+  specify "should allow the lowering of the $SAFE level" do
+    $SAFE = 1
+    set_safe_level(0)
+    $SAFE.should == 0
   end
 end
