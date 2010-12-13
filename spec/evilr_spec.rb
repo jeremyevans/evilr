@@ -25,4 +25,11 @@ describe "Object#share_singleton_class" do
     def @o1.a; 3; end
     @o2.a.should == 3
   end
+
+  specify "should raise an exception for immediate objects" do
+    [0, :a, true, false, nil].each do |x|
+      proc{x.share_singleton_class(@o2)}.should raise_error(TypeError)
+      proc{@o1.share_singleton_class(x)}.should raise_error(TypeError)
+    end
+  end
 end
