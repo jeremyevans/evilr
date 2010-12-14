@@ -39,14 +39,39 @@ static VALUE evilr_class_e(VALUE self, VALUE klass) {
   return self;
 }
 
-static VALUE evilr_share_singleton_class(VALUE self, VALUE other) {
+static VALUE evilr_include_singleton_class(VALUE self, VALUE other) {
+  VALUE tmp;
+
   evilr__check_immediate(self);
   evilr__check_immediate(other);
 
-  /* Create singleton class to be shared if it doesn't exist */
+  /* Create singleton classes to be included if it doesn't exist */
   (void)rb_singleton_class(other);
 
+  /* Loses current singleton class */
   RBASIC(self)->klass = RBASIC(other)->klass;
+
+  return self;
+}
+
+static VALUE evilr_swap_singleton_class(VALUE self, VALUE other) {
+  VALUE tmp;
+
+  evilr__check_immediate(self);
+  evilr__check_immediate(other);
+
+  /* Create singleton classes to be swapped if they doesn't exist */
+  (void)rb_singleton_class(other);
+  (void)rb_singleton_class(self);
+
+  tmp = RBASIC(self)->klass;
+  RBASIC(self)->klass = RBASIC(other)->klass;
+  RBASIC(other)->klass = tmp;
+
+  /* Attach each singleton class to its object */
+  rb_singleton_class_attached(RBASIC(self)->klass, self);
+  rb_singleton_class_attached(RBASIC(other)->klass, other);
+
   return self;
 }
 
@@ -68,7 +93,8 @@ static VALUE evilr_set_safe_level(VALUE self, VALUE safe) {
 
 void Init_evilr(void) {
   rb_define_method(rb_cObject, "class=", evilr_class_e, 1);
-  rb_define_method(rb_cObject, "share_singleton_class", evilr_share_singleton_class, 1);
+  rb_define_method(rb_cObject, "include_singleton_class", evilr_include_singleton_class, 1);
+  rb_define_method(rb_cObject, "swap_singleton_class", evilr_swap_singleton_class, 1);
   rb_define_method(rb_cObject, "unfreeze", evilr_unfreeze, 0);
 
   rb_define_method(rb_mKernel, "set_safe_level", evilr_set_safe_level, 1);

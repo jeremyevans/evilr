@@ -29,7 +29,7 @@ describe "Object#class=" do
   end
 end
 
-describe "Object#share_singleton_class" do
+describe "Object#include_singleton_class" do
   after{GC.start}
   before do
     @o1 = Class.new.new
@@ -37,30 +37,80 @@ describe "Object#share_singleton_class" do
     def @o2.a; 1; end
   end
 
-  specify "should share singleton class with argument" do
-    @o1.share_singleton_class(@o2)
+  specify "should include argument's singleton class as a module in receiver's singleton class" do
+    @o1.include_singleton_class(@o2)
     @o1.a.should == 1
     def @o2.b; 2; end
     def @o2.c; b; end
     @o1.b.should == 2
     @o1.c.should == 2
+
+    def @o1.c; 3; end
+    @o2.c.should == 2
+    @o1.c.should == 3
   end
 
   specify "should create a singleton class if it doesn't exist" do
-    @o2.share_singleton_class(@o1)
+    @o2.include_singleton_class(@o1)
     def @o1.a; 3; end
     @o2.a.should == 3
   end
 
   specify "should raise an exception for immediate objects" do
     [0, :a, true, false, nil].each do |x|
-      proc{x.share_singleton_class(@o2)}.should raise_error(TypeError)
-      proc{@o1.share_singleton_class(x)}.should raise_error(TypeError)
+      proc{x.include_singleton_class(@o2)}.should raise_error(TypeError)
+      proc{@o1.include_singleton_class(x)}.should raise_error(TypeError)
     end
   end
 
   specify "should return self" do
-    @o2.share_singleton_class(@o1).should equal(@o2)
+    @o2.include_singleton_class(@o1).should equal(@o2)
+  end
+end
+
+describe "Object#swap_singleton_class" do
+  after{GC.start}
+  before do
+    @o1 = Class.new.new
+    @o2 = Class.new.new
+  end
+
+  specify "should swap singleton class with argument" do
+    def @o2.a; 1; end
+    def @o1.b; 2; end
+    @o1.swap_singleton_class(@o2)
+    @o1.a.should == 1
+    @o2.b.should == 2
+    proc{@o1.b}.should raise_error(NoMethodError)
+    proc{@o2.a}.should raise_error(NoMethodError)
+
+    def @o2.c; 3; end
+    def @o1.d; 4; end
+    @o2.c.should == 3
+    @o1.d.should == 4
+    proc{@o2.d}.should raise_error(NoMethodError)
+    proc{@o1.c}.should raise_error(NoMethodError)
+  end
+
+  specify "should handle singleton classes that don't exist" do
+    @o2.swap_singleton_class(@o1)
+    def @o2.c; 3; end
+    def @o1.d; 4; end
+    @o2.c.should == 3
+    @o1.d.should == 4
+    proc{@o2.d}.should raise_error(NoMethodError)
+    proc{@o1.c}.should raise_error(NoMethodError)
+  end
+
+  specify "should raise an exception for immediate objects" do
+    [0, :a, true, false, nil].each do |x|
+      proc{x.swap_singleton_class(@o2)}.should raise_error(TypeError)
+      proc{@o1.swap_singleton_class(x)}.should raise_error(TypeError)
+    end
+  end
+
+  specify "should return self" do
+    @o2.swap_singleton_class(@o1).should equal(@o2)
   end
 end
 
