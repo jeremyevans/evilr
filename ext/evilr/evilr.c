@@ -66,7 +66,7 @@ static VALUE evilr__iclass_before_next_class(VALUE klass) {
 void evilr__reparent_singleton_class(VALUE self, VALUE klass) {
   VALUE self_klass = RBASIC_KLASS(self);
 
-  if (FL_TEST(self_klass, FL_SINGLETON)) {
+  if (IS_SINGLETON_CLASS(self_klass)) {
     RCLASS_SET_SUPER(evilr__iclass_before_next_class(self_klass), klass);
   } else {
     RBASIC_SET_KLASS(self, klass);
@@ -174,7 +174,7 @@ static VALUE evilr_set_safe_level(VALUE self, VALUE safe) {
 }
 
 static VALUE evilr_detach_singleton(VALUE klass) {
-  if (FL_TEST(klass, FL_SINGLETON)) {
+  if (IS_SINGLETON_CLASS(klass)) {
     FL_UNSET(klass, FL_SINGLETON);
     if (RCLASS_IV_TBL(klass)) {
       st_delete(RCLASS_IV_TBL(klass), (st_data_t*)&evilr__attached, 0);
@@ -210,7 +210,7 @@ static VALUE evilr_set_singleton_class(VALUE self, VALUE klass) {
   evilr__check_type(T_CLASS, klass);
 
   old_class = RBASIC_KLASS(self);
-  if (FL_TEST(old_class, FL_SINGLETON)) {
+  if (IS_SINGLETON_CLASS(old_class)) {
     old_class = evilr__next_class(old_class);
   }
 
@@ -231,7 +231,7 @@ static VALUE evilr_remove_singleton_class(VALUE self) {
   VALUE klass;
   evilr__check_immediate(self);
 
-  if (FL_TEST(RBASIC_KLASS(self), FL_SINGLETON)) {
+  if (HAS_SINGLETON_CLASS(self)) {
     klass = evilr_detach_singleton_class(self);
     RBASIC_SET_KLASS(self, evilr__next_class(klass));
   } else {
@@ -251,7 +251,7 @@ static VALUE evilr_singleton_class_instance(VALUE klass) {
 static VALUE evilr_to_module(VALUE klass) {
   VALUE mod;
 
-  if (FL_TEST(klass, FL_SINGLETON)) {
+  if (IS_SINGLETON_CLASS(klass)) {
     if((mod = evilr_singleton_class_instance(klass))) {
       mod = rb_singleton_class_clone(mod);
     } else {
