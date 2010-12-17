@@ -274,12 +274,75 @@ describe "Object#detach_singleton_class" do
     o.detach_singleton_class.new.a.should == 1
   end
 
-  specify "should detach singleton class from object, allowing new singleton class to be created" do
+  specify "should detach singleton class from object, becoming the object's actual class" do
+    o = Object.new
+    o.instance_eval{def a() 1 end}
+    sc = (class << o; self; end)
+    o.detach_singleton_class
+    o.class.should == sc
+  end
+
+  specify "should have singleton class's methods remain in the method chain" do
     o = Object.new
     o.instance_eval{def a() 1 end}
     o.detach_singleton_class
     o.instance_eval{def a() super + 2 end}
     o.a.should == 3
+  end
+end
+
+describe "Object#remove_singleton_class" do
+  after{GC.start}
+
+  specify "should raise an exception for immediate values" do
+    proc{nil.remove_singleton_class}.should raise_error(TypeError)
+  end
+
+  specify "should be a no-op an object without a singleton class" do
+    a = {:a=>1}
+    a.remove_singleton_class
+    a[:a].should == 1
+  end
+
+  specify "should return nil if the class does not exist" do
+    Object.new.remove_singleton_class.should == nil
+  end
+
+  specify "should return the class if it exists" do
+    o = Object.new
+    sc = (class << o; self; end)
+    o.remove_singleton_class.should == sc
+  end
+
+  specify "should remove singleton status from singleton class" do
+    o = Object.new
+    o.instance_eval{def a() 1 end}
+    o.remove_singleton_class.new.a.should == 1
+  end
+
+  specify "should remove singleton class from object, restoring the object's original class" do
+    o = Object.new
+    o.instance_eval{def a() 1 end}
+    sc = (class << o; self; end)
+    o.remove_singleton_class
+    o.class.should == Object
+  end
+
+  specify "should have singleton class's methods not remain in the method chain" do
+    o = Object.new
+    o.instance_eval{def a() 1 end}
+    o.remove_singleton_class
+    o.instance_eval{def a() super + 2 end}
+    proc{o.a}.should raise_error(NoMethodError)
+  end
+
+  specify "should handle modules that extend the object" do
+    o = Object.new
+    o.instance_eval{def a() 1 end}
+    o.extend(Module.new{def b() 2 end})
+    o.remove_singleton_class
+    proc{o.a}.should raise_error(NoMethodError)
+    proc{o.b}.should raise_error(NoMethodError)
   end
 end
 
