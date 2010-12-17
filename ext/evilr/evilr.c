@@ -82,19 +82,6 @@ static VALUE evilr_class_e(VALUE self, VALUE klass) {
   return self;
 }
 
-static VALUE evilr_include_singleton_class(VALUE self, VALUE other) {
-  evilr__check_immediate(self);
-  evilr__check_immediate(other);
-
-  /* Create singleton classes to be included if it doesn't exist */
-  (void)rb_singleton_class(other);
-
-  /* Loses current singleton class */
-  RBASIC_SET_KLASS(self, RBASIC_KLASS(other));
-
-  return self;
-}
-
 static VALUE evilr_swap_singleton_class(VALUE self, VALUE other) {
   VALUE tmp;
 
@@ -229,7 +216,6 @@ void Init_evilr(void) {
   rb_define_method(rb_cObject, "class=", evilr_class_e, 1);
   rb_define_method(rb_cObject, "flags", evilr_flags, 0);
   rb_define_method(rb_cObject, "detach_singleton_class", evilr_detach_singleton_class, 0);
-  rb_define_method(rb_cObject, "include_singleton_class", evilr_include_singleton_class, 1);
   rb_define_method(rb_cObject, "swap_singleton_class", evilr_swap_singleton_class, 1);
   rb_define_method(rb_cObject, "remove_singleton_class", evilr_remove_singleton_class, 0);
   rb_define_method(rb_cObject, "unfreeze", evilr_unfreeze, 0);

@@ -29,45 +29,6 @@ describe "Object#class=" do
   end
 end
 
-describe "Object#include_singleton_class" do
-  after{GC.start}
-  before do
-    @o1 = Class.new.new
-    @o2 = Class.new.new
-    def @o2.a; 1; end
-  end
-
-  specify "should include argument's singleton class as a module in receiver's singleton class" do
-    @o1.include_singleton_class(@o2)
-    @o1.a.should == 1
-    def @o2.b; 2; end
-    def @o2.c; b; end
-    @o1.b.should == 2
-    @o1.c.should == 2
-
-    def @o1.c; 3; end
-    @o2.c.should == 2
-    @o1.c.should == 3
-  end
-
-  specify "should create a singleton class if it doesn't exist" do
-    @o2.include_singleton_class(@o1)
-    def @o1.a; 3; end
-    @o2.a.should == 3
-  end
-
-  specify "should raise an exception for immediate objects" do
-    [0, :a, true, false, nil].each do |x|
-      proc{x.include_singleton_class(@o2)}.should raise_error(TypeError)
-      proc{@o1.include_singleton_class(x)}.should raise_error(TypeError)
-    end
-  end
-
-  specify "should return self" do
-    @o2.include_singleton_class(@o1).should equal(@o2)
-  end
-end
-
 describe "Object#swap_singleton_class" do
   after{GC.start}
   before do
