@@ -22,10 +22,12 @@ instance variables, or method tables).
   * class= : Change the class of an object
   * detach_singleton_class : Make current singleton class not a
     singleton, becoming the object's main class.
-  * swap_singleton_class : Swap an object's singleton class with
-    another object's singleton class.
   * remove_singleton_class : Remove an object's singleton class
     and any modules that extend the object.
+  * set_singleton_class : Take a given class and make it the object's
+    singleton class, replacing any existing singleton class.
+  * swap_singleton_class : Swap an object's singleton class with
+    another object's singleton class.
   * unfreeze : Unfreeze the object.
 * Kernel
   * set_safe_level : Allows you to lower ruby's $SAFE level.

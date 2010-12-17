@@ -209,6 +209,71 @@ describe "Class#detach_singleton" do
   end
 end
 
+describe "Object#set_singleton_class" do
+  after{GC.start}
+
+  specify "should raise an exception for immediate values" do
+    proc{nil.set_singleton_class(Class.new)}.should raise_error(TypeError)
+  end
+
+  specify "should raise an exception for non-class arguments" do
+    proc{Object.new.set_singleton_class(Object.new)}.should raise_error(TypeError)
+  end
+
+  specify "should return the class" do
+    c = Class.new
+    Object.new.set_singleton_class(c).should == c
+  end
+
+  specify "should make object the new singleton class's instance" do
+    o = Object.new
+    o.set_singleton_class(Class.new).singleton_class_instance.should == o
+  end
+
+  specify "should make class the object's singleton class" do
+    o = Object.new
+    c = Class.new{def a() 1 end}
+    o.set_singleton_class(c)
+    (class << o; self; end).should == c
+    o.a.should == 1
+  end
+
+  specify "should replace an existing singleton class" do
+    o = Object.new
+    o.instance_eval{def a() 3 end}
+    c = Class.new{def a() 1 + (super rescue 10) end}
+    o.set_singleton_class(c)
+    o.a.should == 11
+  end
+
+  specify "should remove any modules currently extending the class" do
+    o = Object.new
+    o.instance_eval{def a() 3 end}
+    o.extend(Module.new{def a() 4 end})
+    c = Class.new{def a() 1 + (super rescue 10) end}
+    o.set_singleton_class(c)
+    o.a.should == 11
+  end
+
+  specify "should keep any existing class" do
+    oc = Class.new
+    o = oc.new
+    c = Class.new
+    sc = Class.new(c)
+    o.set_singleton_class(sc)
+    o.class.should == oc
+  end
+
+  specify "should make modules included in class as modules that extend the new class" do
+    oc = Class.new{def a() [1] end}
+    o = oc.new
+    c = Class.new{def a() [2] + super end}
+    sc = Class.new(c){def a() [4] + super end; include Module.new{def a() [8] + super end}}
+    o.set_singleton_class(sc)
+    o.a.should == [4, 8, 1]
+  end
+end
+
 describe "Object#detach_singleton_class" do
   after{GC.start}
 

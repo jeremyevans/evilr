@@ -49,6 +49,17 @@ static void evilr__check_class_type(unsigned int type, VALUE self) {
   }
 }
 
+static VALUE evilr__next_class(VALUE klass) {
+  VALUE c;
+  for (c = RCLASS_SUPER(klass); BUILTIN_TYPE(c) != T_CLASS; c = RCLASS_SUPER(c)); /* empty */
+  return c;
+}
+
+static VALUE evilr__iclass_before_next_class(VALUE klass) {
+  VALUE c, i = NULL;
+  for (c = RCLASS_SUPER(klass); BUILTIN_TYPE(c) != T_CLASS; i = c, c = RCLASS_SUPER(c)); /* empty */
+  return i;
+}
 
 static VALUE evilr__debug_print(VALUE self) {
   if (self == NULL) {
@@ -139,14 +150,38 @@ static VALUE evilr_detach_singleton_class(VALUE self) {
   return evilr_detach_singleton(RBASIC_KLASS(self));
 }
 
+static VALUE evilr_set_singleton_class(VALUE self, VALUE klass) {
+  VALUE old_class, iclass;
+
+  evilr__check_immediate(self);
+  evilr__check_immediate(klass);
+  evilr__check_type(T_CLASS, klass);
+
+  old_class = RBASIC_KLASS(self);
+  if (FL_TEST(old_class, FL_SINGLETON)) {
+    old_class = evilr__next_class(old_class);
+  }
+
+  iclass = evilr__iclass_before_next_class(klass);
+  if (iclass == NULL) {
+    iclass = klass;
+  } 
+  RCLASS_SET_SUPER(iclass, old_class);
+
+  FL_SET(klass, FL_SINGLETON);
+  RBASIC_SET_KLASS(self, klass);
+  rb_singleton_class_attached(klass, self);
+
+  return klass;
+}
+
 static VALUE evilr_remove_singleton_class(VALUE self) {
-  VALUE klass, c;
+  VALUE klass;
   evilr__check_immediate(self);
 
   if (FL_TEST(RBASIC_KLASS(self), FL_SINGLETON)) {
     klass = evilr_detach_singleton_class(self);
-    for (c = RCLASS_SUPER(klass); BUILTIN_TYPE(c) != T_CLASS; c = RCLASS_SUPER(c)); /* empty */
-    RBASIC_SET_KLASS(self, c);
+    RBASIC_SET_KLASS(self, evilr__next_class(klass));
   } else {
     klass = Qnil;
   }
@@ -216,8 +251,9 @@ void Init_evilr(void) {
   rb_define_method(rb_cObject, "class=", evilr_class_e, 1);
   rb_define_method(rb_cObject, "flags", evilr_flags, 0);
   rb_define_method(rb_cObject, "detach_singleton_class", evilr_detach_singleton_class, 0);
-  rb_define_method(rb_cObject, "swap_singleton_class", evilr_swap_singleton_class, 1);
   rb_define_method(rb_cObject, "remove_singleton_class", evilr_remove_singleton_class, 0);
+  rb_define_method(rb_cObject, "set_singleton_class", evilr_set_singleton_class, 1);
+  rb_define_method(rb_cObject, "swap_singleton_class", evilr_swap_singleton_class, 1);
   rb_define_method(rb_cObject, "unfreeze", evilr_unfreeze, 0);
 
   rb_define_method(rb_mKernel, "set_safe_level", evilr_set_safe_level, 1);
