@@ -166,3 +166,106 @@ describe "Kernel#set_safe_level" do
     $SAFE.should == 0
   end
 end
+
+describe "Class#to_module" do
+  after{GC.start}
+
+  specify "should transform the class into a module" do
+    c = Class.new{def a() 1 end}
+    Class.new{include c.to_module}.new.a.should == 1
+  end
+
+  specify "should handle singleton classes without modifying them" do
+    o = Object.new
+    o.instance_eval{def a() 1 end}
+    Class.new{include (class << o; self; end).to_module}.new.a.should == 1
+    o.instance_eval{def a() super end}
+    proc{o.a}.should raise_error(NoMethodError)
+  end
+end
+
+describe "Class#detach_singleton" do
+  after{GC.start}
+
+  specify "should be a no-op on a non-singleton class" do
+    Class.new{def a() 1 end}.detach_singleton.new.a.should == 1
+  end
+
+  specify "should detach singleton class from object" do
+    o = Object.new
+    o.instance_eval{def a() 1 end}
+    sc = (class << o; self; end)
+    sc.detach_singleton.singleton_class_instance.should == nil
+  end
+
+  specify "should allow another singleton class to be created" do
+    o = Object.new
+    o.instance_eval{def a() 1 end}
+    sc = (class << o; self; end)
+    sc.detach_singleton
+    o.instance_eval{def a() super + 2 end}
+    o.a.should == 3
+  end
+end
+
+describe "Object#detach_singleton_class" do
+  after{GC.start}
+
+  specify "should raise an exception for immediate values" do
+    proc{nil.detach_singleton_class}.should raise_error(TypeError)
+  end
+
+  specify "should be a no-op an object without a singleton class" do
+    a = {:a=>1}
+    a.detach_singleton_class
+    a[:a].should == 1
+  end
+
+  specify "should return the class" do
+    Object.new.detach_singleton_class.should == Object
+    o = Object.new
+    sc = (class << o; self; end)
+    o.detach_singleton_class.should == sc
+  end
+
+  specify "should remove singleton status from singleton class" do
+    o = Object.new
+    o.instance_eval{def a() 1 end}
+    o.detach_singleton_class.new.a.should == 1
+  end
+
+  specify "should detach singleton class from object, allowing new singleton class to be created" do
+    o = Object.new
+    o.instance_eval{def a() 1 end}
+    o.detach_singleton_class
+    o.instance_eval{def a() super + 2 end}
+    o.a.should == 3
+  end
+end
+
+describe "Class#singleton_class_instance" do
+  after{GC.start}
+
+  specify "should return nil for a non-singleton class" do
+    Class.new.singleton_class_instance.should == nil
+  end
+
+  specify "should return instance attached to singleton class" do
+    o = Object.new.instance_eval{def a() 1 end}
+    (class << o; self; end).singleton_class_instance.should equal(o)
+  end
+end
+
+describe "Object#flags" do
+  after{GC.start}
+
+  specify "should raise an exception for immediate values" do
+    proc{nil.flags}.should raise_error(TypeError)
+  end
+
+  specify "should return flags value for object" do
+    Object.new.flags.should == 2
+    Class.new.flags.should == 3
+    Module.new.flags.should == 5
+  end
+end
