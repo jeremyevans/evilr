@@ -1,0 +1,70 @@
+= evilr
+
+evilr subverts ruby's runtime and lets you do things you shouldn't
+do, like changing the classes of objects.  It's inspired by evil.rb,
+but is a C extension as opposed to ruby code that uses DL.
+
+== Why?
+
+It's a good way to learn about how ruby works under the hood. It's
+fun to push the boundries of ruby's runtime, to see the difference
+between what's just not allowed (i.e. changing classes) and what's
+not possible for technical reasons (i.e. sharing singleton classes,
+instance variables, or method tables).
+
+== Installation
+
+  gem install evilr
+
+== What evil is currently available?
+
+* Object
+  * class= : Change the class of an object
+  * detach_singleton_class : Make current singleton class not a
+    singleton, becoming the object's main class.
+  * swap_singleton_class : Swap an object's singleton class with
+    another object's singleton class.
+  * remove_singleton_class : Remove an object's singleton class
+    and any modules that extend the object.
+  * unfreeze : Unfreeze the object.
+* Kernel
+  * set_safe_level : Allows you to lower ruby's $SAFE level.
+* Module
+  * to_class : Return a copy of the module as a class.
+* Class
+  * detach_singleton : If the class is a singleton class, remove
+    its singleton status.
+  * singleton_class_instance : If the class is a singleton class,
+    return the related instance.
+  * to_module : Return a copy of the class as a module.
+
+== Good bugs
+
+If bugs are evil in good code, then surely bugs in evil code are good:
+
+  http://github.com/jeremyevans/evilr/issues
+
+== Contributing
+
+I'm happy to accept more evil, hopefully without good bugs and with
+evil specs:
+
+  http://github.com/jeremyevans/evilr
+
+evilr currently requires:
+
+* rake
+* rake-compiler
+* rspec
+
+== Running the specs
+
+Even evil code should have specs!  The default rake task runs the
+specs:
+
+  rake
+
+== Author
+
+Jeremy Evans <code@jeremyevans.net>
+
