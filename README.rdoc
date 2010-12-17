@@ -22,6 +22,8 @@ instance variables, or method tables).
   * class= : Change the class of an object
   * detach_singleton_class : Make current singleton class not a
     singleton, becoming the object's main class.
+  * dup_singleton_class : Make a copy of the current singleton
+    class as a regular class.
   * remove_singleton_class : Remove an object's singleton class
     and any modules that extend the object.
   * set_singleton_class : Take a given class and make it the object's

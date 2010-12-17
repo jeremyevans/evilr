@@ -16,6 +16,8 @@ extern int ruby_safe_level;
 #define RBASIC_SET_KLASS(o, c) (RBASIC(o)->klass = c)
 #define RBASIC_KLASS(o) (RBASIC(o)->klass)
 #define RBASIC_FLAGS(o) (RBASIC(o)->flags)
+#define IS_SINGLETON_CLASS(o) (FL_TEST(o, FL_SINGLETON))
+#define HAS_SINGLETON_CLASS(o) (FL_TEST(RBASIC_KLASS(o), FL_SINGLETON))
 
 #ifdef RUBY19
 #define RCLASS_SET_SUPER(o, c) (RCLASS(o)->ptr->super = c)
@@ -62,7 +64,6 @@ static VALUE evilr__iclass_before_next_class(VALUE klass) {
 }
 
 void evilr__reparent_singleton_class(VALUE self, VALUE klass) {
-  VALUE iclass;
   VALUE self_klass = RBASIC_KLASS(self);
 
   if (FL_TEST(self_klass, FL_SINGLETON)) {
@@ -70,6 +71,10 @@ void evilr__reparent_singleton_class(VALUE self, VALUE klass) {
   } else {
     RBASIC_SET_KLASS(self, klass);
   }
+}
+
+void evilr__reparent_class(VALUE self, VALUE klass) {
+  RCLASS_SET_SUPER(evilr__iclass_before_next_class(self), klass);
 }
 
 static VALUE evilr__debug_print(VALUE self) {
@@ -90,6 +95,24 @@ static VALUE evilr__debug_print(VALUE self) {
       break;
   }
   return evilr__debug_print(self);
+}
+
+static VALUE evilr__optional_class(int argc, VALUE *argv) {
+  VALUE klass;
+
+  switch(argc) {
+    case 0:
+      klass = rb_cObject;
+      break;
+    case 1:
+      klass = argv[0];
+      evilr__check_class_type(T_OBJECT, klass);
+      break;
+    default:
+      rb_raise(rb_eArgError, "wrong number of arguments: %i for 1", argc);
+      break;
+  }
+  return klass;
 }
 
 
@@ -165,6 +188,20 @@ static VALUE evilr_detach_singleton_class(VALUE self) {
   return evilr_detach_singleton(RBASIC_KLASS(self));
 }
 
+static VALUE evilr_dup_singleton_class(int argc, VALUE *argv, VALUE self) {
+  VALUE klass;
+  evilr__check_immediate(self);
+ 
+  if (!HAS_SINGLETON_CLASS(self)) {
+    return Qnil;
+  }
+  klass = evilr__optional_class(argc, argv);
+  self = rb_singleton_class_clone(self);
+  evilr__reparent_class(self, klass);
+  FL_UNSET(self, FL_SINGLETON);
+  return self;
+}
+
 static VALUE evilr_set_singleton_class(VALUE self, VALUE klass) {
   VALUE old_class, iclass;
 
@@ -232,20 +269,7 @@ static VALUE evilr_to_module(VALUE klass) {
 }
 
 static VALUE evilr_to_class(int argc, VALUE *argv, VALUE self) {
-  VALUE klass;
-
-  switch(argc) {
-    case 0:
-      klass = rb_cObject;
-      break;
-    case 1:
-      klass = argv[0];
-      evilr__check_class_type(T_OBJECT, klass);
-      break;
-    default:
-      rb_raise(rb_eArgError, "wrong number of arguments: %i for 1", argc);
-      break;
-  }
+  VALUE klass = evilr__optional_class(argc, argv);
 
   self = rb_obj_clone(self);
   RBASIC_SET_KLASS(self, rb_singleton_class(klass));
@@ -266,6 +290,7 @@ void Init_evilr(void) {
   rb_define_method(rb_cObject, "class=", evilr_class_e, 1);
   rb_define_method(rb_cObject, "flags", evilr_flags, 0);
   rb_define_method(rb_cObject, "detach_singleton_class", evilr_detach_singleton_class, 0);
+  rb_define_method(rb_cObject, "dup_singleton_class", evilr_dup_singleton_class, -1);
   rb_define_method(rb_cObject, "remove_singleton_class", evilr_remove_singleton_class, 0);
   rb_define_method(rb_cObject, "set_singleton_class", evilr_set_singleton_class, 1);
   rb_define_method(rb_cObject, "swap_singleton_class", evilr_swap_singleton_class, 1);

@@ -29,6 +29,45 @@ describe "Object#class=" do
   end
 end
 
+describe "Object#dup_singleton_class" do
+  after{GC.start}
+
+  specify "should raise an exception for immediate values" do
+    proc{nil.dup_singleton_class}.should raise_error(TypeError)
+  end
+
+  specify "should return nil if the object has no singleton class" do
+    Object.new.dup_singleton_class.should == nil
+  end
+
+  specify "should return a copy of the singleton class as a non-singleton class" do
+    o = Object.new
+    o.instance_eval{def a() 1 end}
+    o.dup_singleton_class.new.a.should == 1
+  end
+
+  specify "should make the given class a subclass of Object by default" do
+    o = Object.new
+    o.instance_eval{def a() 1 end}
+    o.dup_singleton_class.superclass.should == Object
+  end
+
+  specify "should accept a class argument to make the dup a subclass of" do
+    o = Object.new
+    o.instance_eval{def a() 1 end}
+    c = Class.new
+    o.dup_singleton_class(c).superclass.should == c
+  end
+
+  specify "should handle extended modules by making them included modules in the class" do
+    o = Object.new
+    o.instance_eval{def a() [1] + super end}
+    o.extend(Module.new{def a() [2] + super end})
+    c = Class.new{def a() [4] + super end; include Module.new{def a() [8] end}}
+    o.dup_singleton_class(c).new.a.should == [1, 2, 4, 8]
+  end
+end
+
 describe "Object#swap_singleton_class" do
   after{GC.start}
   before do
