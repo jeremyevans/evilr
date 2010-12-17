@@ -18,7 +18,7 @@ begin
   require "spec/rake/spectask"
 
   Spec::Rake::SpecTask.new("spec" => :compile) do |t|
-    t.spec_files = "spec/evilr_spec.rb"
+    t.spec_files = ["spec/evilr_spec.rb"]
   end
   task :default => :spec
 

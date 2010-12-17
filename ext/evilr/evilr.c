@@ -9,7 +9,17 @@
 #define SAFE_LEVEL_MAX 4
 #endif
 
+#ifndef RUBY19
 extern int ruby_safe_level;
+#endif
+
+#define RBASIC_SET_KLASS(o, c) RBASIC(o)->klass = c
+#define RBASIC_KLASS(o) RBASIC(o)->klass
+#define RBASIC_FLAGS(o) RBASIC(o)->flags
+
+#ifndef RUBY19
+#define ROBJECT_IV_INDEX_TBL(o) ROBJECT(o)->iv_tbl
+#endif
 
 ID evilr__attached;
 
@@ -39,12 +49,12 @@ static VALUE evilr__debug_print(VALUE self) {
     case T_CLASS:
     case T_ICLASS:
     case T_MODULE:
-      printf("self %p klass %p flags %ld iv_tbl %p m_tbl %p super %p\n", (void *)self, (void *)RBASIC(self)->klass, RBASIC(self)->flags, (void *)ROBJECT(self)->iv_tbl, (void *)RCLASS(self)->m_tbl, (void *)RCLASS(self)->super);
-      self = RCLASS(self)->super;
+      printf("self %p klass %p flags %ld iv_tbl %p m_tbl %p super %p\n", (void *)self, (void *)RBASIC_KLASS(self), RBASIC_FLAGS(self), (void *)ROBJECT_IV_INDEX_TBL(self), (void *)RCLASS_M_TBL(self), (void *)RCLASS_SUPER(self));
+      self = RCLASS_SUPER(self);
       break;
     default:
-      printf("self %p klass %p flags %ld iv_tbl %p\n", (void *)self, (void *)RBASIC(self)->klass, RBASIC(self)->flags, (void *)ROBJECT(self)->iv_tbl);
-      self = RBASIC(self)->klass;
+      printf("self %p klass %p flags %ld iv_tbl %p\n", (void *)self, (void *)RBASIC_KLASS(self), RBASIC_FLAGS(self), (void *)ROBJECT_IV_INDEX_TBL(self));
+      self = RBASIC_KLASS(self);
       break;
   }
   return evilr__debug_print(self);
@@ -58,7 +68,7 @@ static VALUE evilr_class_e(VALUE self, VALUE klass) {
     rb_raise(rb_eTypeError, "incompatible type used");
   }
 
-  RBASIC(self)->klass = klass;
+  RBASIC_SET_KLASS(self, klass);
   return self;
 }
 
@@ -70,7 +80,7 @@ static VALUE evilr_include_singleton_class(VALUE self, VALUE other) {
   (void)rb_singleton_class(other);
 
   /* Loses current singleton class */
-  RBASIC(self)->klass = RBASIC(other)->klass;
+  RBASIC_SET_KLASS(self, RBASIC_KLASS(other));
 
   return self;
 }
@@ -85,13 +95,13 @@ static VALUE evilr_swap_singleton_class(VALUE self, VALUE other) {
   (void)rb_singleton_class(other);
   (void)rb_singleton_class(self);
 
-  tmp = RBASIC(self)->klass;
-  RBASIC(self)->klass = RBASIC(other)->klass;
-  RBASIC(other)->klass = tmp;
+  tmp = RBASIC_KLASS(self);
+  RBASIC_SET_KLASS(self, RBASIC_KLASS(other));
+  RBASIC_SET_KLASS(other, tmp);
 
   /* Attach each singleton class to its object */
-  rb_singleton_class_attached(RBASIC(self)->klass, self);
-  rb_singleton_class_attached(RBASIC(other)->klass, other);
+  rb_singleton_class_attached(RBASIC_KLASS(self), self);
+  rb_singleton_class_attached(RBASIC_KLASS(other), other);
 
   return self;
 }
@@ -105,18 +115,23 @@ static VALUE evilr_unfreeze(VALUE self) {
 }
 
 static VALUE evilr_set_safe_level(VALUE self, VALUE safe) {
-  ruby_safe_level = NUM2INT(safe);
-  if (ruby_safe_level > SAFE_LEVEL_MAX) {
-    ruby_safe_level = SAFE_LEVEL_MAX;
+  int s = NUM2INT(safe);
+  if (s > SAFE_LEVEL_MAX) {
+    s = SAFE_LEVEL_MAX;
   }
+#ifdef RUBY19
+  rb_set_safe_level_force(s);
+#else
+  ruby_safe_level = s;
+#endif
   return safe;
 }
 
 static VALUE evilr_detach_singleton(VALUE klass) {
   if (FL_TEST(klass, FL_SINGLETON)) {
     FL_UNSET(klass, FL_SINGLETON);
-    if (RCLASS(klass)->iv_tbl) {
-      st_delete(RCLASS(klass)->iv_tbl, (st_data_t*)&evilr__attached, 0);
+    if (RCLASS_IV_TBL(klass)) {
+      st_delete(RCLASS_IV_TBL(klass), (st_data_t*)&evilr__attached, 0);
     }
   }
   return klass;
@@ -124,12 +139,12 @@ static VALUE evilr_detach_singleton(VALUE klass) {
 
 static VALUE evilr_detach_singleton_class(VALUE self) {
   evilr__check_immediate(self);
-  return evilr_detach_singleton(RBASIC(self)->klass);
+  return evilr_detach_singleton(RBASIC_KLASS(self));
 }
 
 static VALUE evilr_singleton_class_instance(VALUE klass) {
   VALUE obj;
-  if(RCLASS(klass)->iv_tbl && st_lookup(RCLASS(klass)->iv_tbl, evilr__attached, &obj)) {
+  if(RCLASS_IV_TBL(klass) && st_lookup(RCLASS_IV_TBL(klass), evilr__attached, &obj)) {
     return obj;
   }
   return Qnil;
@@ -138,7 +153,7 @@ static VALUE evilr_singleton_class_instance(VALUE klass) {
 static VALUE evilr_to_module(VALUE klass) {
   VALUE mod;
 
-  if (RBASIC(klass)->flags & FL_SINGLETON) {
+  if (FL_TEST(klass, FL_SINGLETON)) {
     if((mod = evilr_singleton_class_instance(klass))) {
       mod = rb_singleton_class_clone(mod);
     } else {
@@ -148,15 +163,15 @@ static VALUE evilr_to_module(VALUE klass) {
   } else {
     mod = rb_obj_clone(klass);
   }
-  RBASIC(mod)->klass = rb_cModule;
-  RBASIC(mod)->flags &= ~ T_MASK;
-  RBASIC(mod)->flags |= T_MODULE;
+  RBASIC_SET_KLASS(mod, rb_cModule);
+  FL_UNSET(mod, T_MASK);
+  FL_SET(mod, T_MODULE);
   return mod;
 }
 
 static VALUE evilr_flags(VALUE self) {
   evilr__check_immediate(self);
-  return UINT2NUM(RBASIC(self)->flags);
+  return UINT2NUM(RBASIC_FLAGS(self));
 }
 
 void Init_evilr(void) {

@@ -263,9 +263,11 @@ describe "Object#flags" do
     proc{nil.flags}.should raise_error(TypeError)
   end
 
-  specify "should return flags value for object" do
-    Object.new.flags.should == 2
-    Class.new.flags.should == 3
-    Module.new.flags.should == 5
+  specify "should return a Fixnum" do
+    Object.new.flags.should be_a_kind_of(Fixnum)
+    Class.new.flags.should be_a_kind_of(Fixnum)
+    Module.new.flags.should be_a_kind_of(Fixnum)
+    Object.new.flags.should_not == Class.new.flags
+    Module.new.flags.should_not == Class.new.flags
   end
 end
