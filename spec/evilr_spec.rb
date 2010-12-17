@@ -73,6 +73,28 @@ describe "Object#swap_singleton_class" do
   specify "should return self" do
     @o2.swap_singleton_class(@o1).should equal(@o2)
   end
+
+  specify "should keep existing class hierarchy the same, other than the singleton classes" do
+    oc1 = Class.new
+    oc2 = Class.new
+    o1 = oc1.new
+    o2 = oc2.new
+    o1.swap_singleton_class(o2)
+    o1.class.should == oc1
+    o2.class.should == oc2
+  end
+
+  specify "should also swap modules that extend the class" do
+    oc1 = Class.new{def a() [16] end}
+    oc2 = Class.new{def a() [32] end}
+    o1 = oc1.new
+    o2 = oc2.new
+    o1.instance_eval{def a() [1] + super end; extend Module.new{def a() [2] + super end}}
+    o2.instance_eval{def a() [4] + super end; extend Module.new{def a() [8] + super end}}
+    o1.swap_singleton_class(o2)
+    o1.a.should == [4, 8, 16]
+    o2.a.should == [1, 2, 32]
+  end
 end
 
 describe "Object#unfreeze" do

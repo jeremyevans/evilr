@@ -51,14 +51,25 @@ static void evilr__check_class_type(unsigned int type, VALUE self) {
 
 static VALUE evilr__next_class(VALUE klass) {
   VALUE c;
-  for (c = RCLASS_SUPER(klass); BUILTIN_TYPE(c) != T_CLASS; c = RCLASS_SUPER(c)); /* empty */
+  for (c = RCLASS_SUPER(klass); c && BUILTIN_TYPE(c) != T_CLASS; c = RCLASS_SUPER(c)); /* empty */
   return c;
 }
 
 static VALUE evilr__iclass_before_next_class(VALUE klass) {
   VALUE c, i = NULL;
-  for (c = RCLASS_SUPER(klass); BUILTIN_TYPE(c) != T_CLASS; i = c, c = RCLASS_SUPER(c)); /* empty */
-  return i;
+  for (c = RCLASS_SUPER(klass); c && BUILTIN_TYPE(c) != T_CLASS; i = c, c = RCLASS_SUPER(c)); /* empty */
+  return i == NULL ? klass : i;
+}
+
+void evilr__reparent_singleton_class(VALUE self, VALUE klass) {
+  VALUE iclass;
+  VALUE self_klass = RBASIC_KLASS(self);
+
+  if (FL_TEST(self_klass, FL_SINGLETON)) {
+    RCLASS_SET_SUPER(evilr__iclass_before_next_class(self_klass), klass);
+  } else {
+    RBASIC_SET_KLASS(self, klass);
+  }
 }
 
 static VALUE evilr__debug_print(VALUE self) {
@@ -102,6 +113,10 @@ static VALUE evilr_swap_singleton_class(VALUE self, VALUE other) {
   /* Create singleton classes to be swapped if they doesn't exist */
   (void)rb_singleton_class(other);
   (void)rb_singleton_class(self);
+
+  tmp = rb_obj_class(other);
+  evilr__reparent_singleton_class(other, rb_obj_class(self));
+  evilr__reparent_singleton_class(self, tmp);
 
   tmp = RBASIC_KLASS(self);
   RBASIC_SET_KLASS(self, RBASIC_KLASS(other));
