@@ -13,12 +13,15 @@
 extern int ruby_safe_level;
 #endif
 
-#define RBASIC_SET_KLASS(o, c) RBASIC(o)->klass = c
-#define RBASIC_KLASS(o) RBASIC(o)->klass
-#define RBASIC_FLAGS(o) RBASIC(o)->flags
+#define RBASIC_SET_KLASS(o, c) (RBASIC(o)->klass = c)
+#define RBASIC_KLASS(o) (RBASIC(o)->klass)
+#define RBASIC_FLAGS(o) (RBASIC(o)->flags)
 
-#ifndef RUBY19
-#define ROBJECT_IV_INDEX_TBL(o) ROBJECT(o)->iv_tbl
+#ifdef RUBY19
+#define RCLASS_SET_SUPER(o, c) (RCLASS(o)->ptr->super = c)
+#else
+#define RCLASS_SET_SUPER(o, c) (RCLASS(o)->super = c)
+#define ROBJECT_IV_INDEX_TBL(o) (ROBJECT(o)->iv_tbl)
 #endif
 
 ID evilr__attached;
@@ -39,6 +42,13 @@ static unsigned int evilr__class_type(VALUE klass) {
   evilr__check_type(T_CLASS, klass);
   return BUILTIN_TYPE(rb_obj_alloc(klass));
 }
+
+static void evilr__check_class_type(unsigned int type, VALUE self) {
+  if (evilr__class_type(self) != type) {
+    rb_raise(rb_eTypeError, "incompatible type used");
+  }
+}
+
 
 static VALUE evilr__debug_print(VALUE self) {
   if (self == NULL) {
@@ -163,10 +173,35 @@ static VALUE evilr_to_module(VALUE klass) {
   } else {
     mod = rb_obj_clone(klass);
   }
+
   RBASIC_SET_KLASS(mod, rb_cModule);
   FL_UNSET(mod, T_MASK);
   FL_SET(mod, T_MODULE);
   return mod;
+}
+
+static VALUE evilr_to_class(int argc, VALUE *argv, VALUE self) {
+  VALUE klass;
+
+  switch(argc) {
+    case 0:
+      klass = rb_cObject;
+      break;
+    case 1:
+      klass = argv[0];
+      evilr__check_class_type(T_OBJECT, klass);
+      break;
+    default:
+      rb_raise(rb_eArgError, "wrong number of arguments: %i for 1", argc);
+      break;
+  }
+
+  self = rb_obj_clone(self);
+  RBASIC_SET_KLASS(self, rb_singleton_class(klass));
+  RCLASS_SET_SUPER(self, klass);
+  FL_UNSET(self, T_MASK);
+  FL_SET(self, T_CLASS);
+  return self;
 }
 
 static VALUE evilr_flags(VALUE self) {
@@ -185,6 +220,8 @@ void Init_evilr(void) {
   rb_define_method(rb_cObject, "unfreeze", evilr_unfreeze, 0);
 
   rb_define_method(rb_mKernel, "set_safe_level", evilr_set_safe_level, 1);
+
+  rb_define_method(rb_cModule, "to_class", evilr_to_class, -1);
 
   rb_define_method(rb_cClass, "detach_singleton", evilr_detach_singleton, 0);
   rb_define_method(rb_cClass, "singleton_class_instance", evilr_singleton_class_instance, 0);

@@ -167,10 +167,50 @@ describe "Kernel#set_safe_level" do
   end
 end
 
+describe "Module#to_class" do
+  after{GC.start}
+
+  specify "should return the module in class form" do
+    Module.new{def a() 1 end}.to_class.new.a.should == 1
+  end
+
+  specify "should accept an optional argument for the new class type" do
+    Module.new{def a() 1 end}.to_class(Object).new.a.should == 1
+    Module.new{def a() super + 2 end}.to_class(Class.new{def a() 1 end}).new.a.should == 3
+  end
+
+  specify "should raise exception if attempting to instantiate a builtin class other than Object" do
+    proc{Module.new.to_class(Hash)}.should raise_error(TypeError)
+    proc{Module.new.to_class(Array)}.should raise_error(TypeError)
+    proc{Module.new.to_class(String)}.should raise_error(TypeError)
+  end
+
+  specify "should return copy of self (possibly reparented) if already a class" do
+    Class.new{def a() 1 end}.to_class.new.a.should == 1
+    Class.new{def a() 1 end}.to_class(Object).new.a.should == 1
+    Class.new{def a() super + 2 end}.to_class(Class.new{def a() 1 end}).new.a.should == 3
+
+    osc = Class.new
+    c = Class.new(osc)
+    sc = Class.new
+    c.to_class(sc).superclass.should == sc
+    c.superclass.should == osc
+  end
+
+  specify "should use Object as the default superclass" do
+    Module.new.to_class.superclass.should == Object
+  end
+
+  specify "should use given class as the superclass" do
+    c = Class.new
+    Module.new.to_class(c).superclass.should == c
+  end
+end
+
 describe "Class#to_module" do
   after{GC.start}
 
-  specify "should transform the class into a module" do
+  specify "should return the class in module form" do
     c = Class.new{def a() 1 end}
     Class.new{include c.to_module}.new.a.should == 1
   end
