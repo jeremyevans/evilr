@@ -80,6 +80,17 @@ describe "Object\#{push,pop}_singleton_class" do
     proc{{}.push_singleton_class(Object.new)}.should raise_error(TypeError)
   end
 
+  specify "both should return the class" do
+    c = Class.new
+    o = {}
+    o.push_singleton_class(c).should == c
+    o.pop_singleton_class.should == c
+  end
+
+  specify "pop_singleton_class should return nil if no singleton class exists" do
+    {}.pop_singleton_class.should == nil
+  end
+
   specify "should add and remove singleton classes" do
     o = Class.new{def a() [1] end}.new
     o.a.should == [1]

@@ -218,16 +218,21 @@ static VALUE evilr_push_singleton_class(VALUE self, VALUE klass) {
   evilr__check_obj_and_class(self, klass);
   evilr__reparent_class(evilr__iclass_before_next_class(klass), RBASIC_KLASS(self));
   evilr__make_singleton(self, klass);
-  return Qnil;
+  return klass;
 }
 
 static VALUE evilr_pop_singleton_class(VALUE self) {
-  evilr__check_immediate(self);
+  VALUE klass;
 
-  if (HAS_SINGLETON_CLASS(self)) {
-    RBASIC_SET_KLASS(self, evilr__next_class(RBASIC_KLASS(self)));  
-  } 
-  return Qnil;
+  evilr__check_immediate(self);
+  klass = RBASIC_KLASS(self);
+
+  if (IS_SINGLETON_CLASS(klass)) {
+    RBASIC_SET_KLASS(self, evilr__next_class(klass));  
+  } else {
+    klass = Qnil;
+  }
+  return klass;
 }
 
 static VALUE evilr_set_singleton_class(VALUE self, VALUE klass) {
