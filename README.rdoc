@@ -30,6 +30,8 @@ instance variables, or method tables).
     in front of any existing singleton class.
   * remove_singleton_class : Remove an object's singleton class
     and any modules that extend the object.
+  * remove_singleton_classes : Remove all singleton classes
+    and extended modules.
   * set_singleton_class : Take a given class and make it the object's
     singleton class, replacing any existing singleton class.
   * swap_singleton_class : Swap an object's singleton class with

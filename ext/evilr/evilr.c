@@ -235,6 +235,12 @@ static VALUE evilr_pop_singleton_class(VALUE self) {
   return klass;
 }
 
+static VALUE evilr_remove_singleton_classes(VALUE self) {
+  evilr__check_immediate(self);
+  RBASIC_SET_KLASS(self, rb_obj_class(self));  
+  return Qnil;
+}
+
 static VALUE evilr_set_singleton_class(VALUE self, VALUE klass) {
   evilr__check_obj_and_class(self, klass);
   RCLASS_SET_SUPER(evilr__iclass_before_next_class(klass), rb_obj_class(self));
@@ -309,6 +315,7 @@ void Init_evilr(void) {
   rb_define_method(rb_cObject, "pop_singleton_class", evilr_pop_singleton_class, 0);
   rb_define_method(rb_cObject, "push_singleton_class", evilr_push_singleton_class, 1);
   rb_define_method(rb_cObject, "remove_singleton_class", evilr_remove_singleton_class, 0);
+  rb_define_method(rb_cObject, "remove_singleton_classes", evilr_remove_singleton_classes, 0);
   rb_define_method(rb_cObject, "set_singleton_class", evilr_set_singleton_class, 1);
   rb_define_method(rb_cObject, "swap_singleton_class", evilr_swap_singleton_class, 1);
   rb_define_method(rb_cObject, "unfreeze", evilr_unfreeze, 0);

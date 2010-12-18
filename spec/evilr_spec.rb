@@ -140,6 +140,50 @@ describe "Object\#{push,pop}_singleton_class" do
   end
 end
 
+describe "Objec#remove_singleton_classes" do
+  after{GC.start}
+
+  specify "should raise an exception for immediate values" do
+    proc{nil.remove_singleton_classes}.should raise_error(TypeError)
+  end
+
+  specify "should return nil" do
+    {}.remove_singleton_classes.should == nil
+  end
+
+  specify "should add and remove singleton classes" do
+    o = Class.new{def a() [1] end}.new
+    o.a.should == [1]
+    o.push_singleton_class(Class.new{def a() [2] + super end})
+    o.a.should == [2, 1]
+    o.push_singleton_class(Class.new{def a() [4] + super end})
+    o.a.should == [4, 2, 1]
+    o.push_singleton_class(Class.new{def a() [8] + super end})
+    o.a.should == [8, 4, 2, 1]
+    o.remove_singleton_classes
+    o.a.should == [1]
+  end
+
+  specify "should handle modules included in the classes" do
+    o = Class.new{def a() [1] end}.new
+    o.a.should == [1]
+    o.push_singleton_class(Class.new{def a() [2] + super end; include Module.new{def a() [32] + super end}})
+    o.a.should == [2, 32, 1]
+    o.push_singleton_class(Class.new{def a() [4] + super end; include Module.new{def a() [64] + super end}})
+    o.a.should == [4, 64, 2, 32, 1]
+    o.push_singleton_class(Class.new{def a() [8] + super end; include Module.new{def a() [128] + super end}})
+    o.a.should == [8, 128, 4, 64, 2, 32, 1]
+    o.remove_singleton_classes
+    o.a.should == [1]
+  end
+
+  specify "should have no effect if the object has no singleton classes" do
+    o = Class.new{def a() [1] end}.new
+    o.remove_singleton_classes
+    o.a.should == [1]
+  end
+end
+
 describe "Object#swap_singleton_class" do
   after{GC.start}
   before do
