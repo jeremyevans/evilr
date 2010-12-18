@@ -77,6 +77,12 @@ void evilr__reparent_class(VALUE self, VALUE klass) {
   RCLASS_SET_SUPER(evilr__iclass_before_next_class(self), klass);
 }
 
+void evilr__check_obj_and_class(VALUE self, VALUE klass) {
+  evilr__check_immediate(self);
+  evilr__check_immediate(klass);
+  evilr__check_type(T_CLASS, klass);
+}
+
 static VALUE evilr__debug_print(VALUE self) {
   if (self == NULL) {
     return Qnil;
@@ -113,6 +119,12 @@ static VALUE evilr__optional_class(int argc, VALUE *argv) {
       break;
   }
   return klass;
+}
+
+void evilr__make_singleton(VALUE self, VALUE klass) {
+  FL_SET(klass, FL_SINGLETON);
+  RBASIC_SET_KLASS(self, klass);
+  rb_singleton_class_attached(klass, self);
 }
 
 
@@ -202,28 +214,26 @@ static VALUE evilr_dup_singleton_class(int argc, VALUE *argv, VALUE self) {
   return self;
 }
 
-static VALUE evilr_set_singleton_class(VALUE self, VALUE klass) {
-  VALUE old_class, iclass;
+static VALUE evilr_push_singleton_class(VALUE self, VALUE klass) {
+  evilr__check_obj_and_class(self, klass);
+  evilr__reparent_class(evilr__iclass_before_next_class(klass), RBASIC_KLASS(self));
+  evilr__make_singleton(self, klass);
+  return Qnil;
+}
 
+static VALUE evilr_pop_singleton_class(VALUE self) {
   evilr__check_immediate(self);
-  evilr__check_immediate(klass);
-  evilr__check_type(T_CLASS, klass);
 
-  old_class = RBASIC_KLASS(self);
-  if (IS_SINGLETON_CLASS(old_class)) {
-    old_class = evilr__next_class(old_class);
-  }
-
-  iclass = evilr__iclass_before_next_class(klass);
-  if (iclass == NULL) {
-    iclass = klass;
+  if (HAS_SINGLETON_CLASS(self)) {
+    RBASIC_SET_KLASS(self, evilr__next_class(RBASIC_KLASS(self)));  
   } 
-  RCLASS_SET_SUPER(iclass, old_class);
+  return Qnil;
+}
 
-  FL_SET(klass, FL_SINGLETON);
-  RBASIC_SET_KLASS(self, klass);
-  rb_singleton_class_attached(klass, self);
-
+static VALUE evilr_set_singleton_class(VALUE self, VALUE klass) {
+  evilr__check_obj_and_class(self, klass);
+  RCLASS_SET_SUPER(evilr__iclass_before_next_class(klass), rb_obj_class(self));
+  evilr__make_singleton(self, klass);
   return klass;
 }
 
@@ -291,6 +301,8 @@ void Init_evilr(void) {
   rb_define_method(rb_cObject, "flags", evilr_flags, 0);
   rb_define_method(rb_cObject, "detach_singleton_class", evilr_detach_singleton_class, 0);
   rb_define_method(rb_cObject, "dup_singleton_class", evilr_dup_singleton_class, -1);
+  rb_define_method(rb_cObject, "pop_singleton_class", evilr_pop_singleton_class, 0);
+  rb_define_method(rb_cObject, "push_singleton_class", evilr_push_singleton_class, 1);
   rb_define_method(rb_cObject, "remove_singleton_class", evilr_remove_singleton_class, 0);
   rb_define_method(rb_cObject, "set_singleton_class", evilr_set_singleton_class, 1);
   rb_define_method(rb_cObject, "swap_singleton_class", evilr_swap_singleton_class, 1);

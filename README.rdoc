@@ -24,6 +24,10 @@ instance variables, or method tables).
     singleton, becoming the object's main class.
   * dup_singleton_class : Make a copy of the current singleton
     class as a regular class.
+  * pop_singleton_class : Remove closest singleton class from the
+    object
+  * push_singleton_class : Add a new singleton class to the object
+    in front of any existing singleton class.
   * remove_singleton_class : Remove an object's singleton class
     and any modules that extend the object.
   * set_singleton_class : Take a given class and make it the object's
