@@ -51,6 +51,12 @@ static void evilr__check_class_type(unsigned int type, VALUE self) {
   }
 }
 
+static void evilr__check_data_type(VALUE self) {
+  if (BUILTIN_TYPE(self) == T_DATA) {
+    rb_raise(rb_eTypeError, "incompatible type used");
+  }
+}
+
 static VALUE evilr__next_class(VALUE klass) {
   VALUE c;
   for (c = RCLASS_SUPER(klass); c && BUILTIN_TYPE(c) != T_CLASS; c = RCLASS_SUPER(c)); /* empty */
@@ -111,9 +117,7 @@ void evilr__make_singleton(VALUE self, VALUE klass) {
 static VALUE evilr_class_e(VALUE self, VALUE klass) {
   evilr__check_immediate(self);
   evilr__check_type(evilr__class_type(klass), self);
-  if (BUILTIN_TYPE(self) == T_DATA) {
-    rb_raise(rb_eTypeError, "incompatible type used");
-  }
+  evilr__check_data_type(self);
 
   RBASIC_SET_KLASS(self, klass);
   return self;
@@ -309,6 +313,19 @@ static VALUE evilr_flags(VALUE self) {
   return UINT2NUM(RBASIC_FLAGS(self));
 }
 
+static VALUE evilr_superclass_e(VALUE klass, VALUE super) {
+  VALUE iclass;
+
+  evilr__check_immediate(super);
+  evilr__check_type(T_CLASS, super);
+  evilr__check_class_type(evilr__class_type(klass), super);
+  evilr__check_data_type(rb_obj_alloc(klass));
+
+  iclass = evilr__iclass_before_next_class(klass);
+  RCLASS_SET_SUPER(iclass, super);
+  return klass;
+}
+
 void Init_evilr(void) {
   evilr__attached = rb_intern("__attached__");
 
@@ -331,5 +348,6 @@ void Init_evilr(void) {
 
   rb_define_method(rb_cClass, "detach_singleton", evilr_detach_singleton, 0);
   rb_define_method(rb_cClass, "singleton_class_instance", evilr_singleton_class_instance, 0);
+  rb_define_method(rb_cClass, "superclass=", evilr_superclass_e, 1);
   rb_define_method(rb_cClass, "to_module", evilr_to_module, 0);
 }

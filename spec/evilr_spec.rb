@@ -573,6 +573,47 @@ describe "Class#singleton_class_instance" do
   end
 end
 
+describe "Class#superclass=" do
+  after{GC.start}
+
+  specify "should raise an exception for immediate values" do
+    proc{Class.new.superclass = nil}.should raise_error(TypeError)
+  end
+
+  specify "should raise an exception for non-class arguments" do
+    proc{Class.new.superclass = Object.new}.should raise_error(TypeError)
+  end
+
+  specify "should raise an exception for incompatible types" do
+    proc{Class.new.superclass = String}.should raise_error(TypeError)
+  end
+
+  specify "should change the superclass of the class" do
+    c = Class.new
+    c2 = Class.new
+    c.superclass.should == Object
+    c.superclass = c2
+    c.superclass.should == c2
+  end
+
+  specify "should keep any included modules" do
+    c = Class.new{def a() [1] + super end; include Module.new{def a() [2] + (super rescue [0]) end}}
+    c2 = Class.new{def a() [4] + super end; include Module.new{def a() [8] + (super rescue [0]) end}}
+    c.new.a.should == [1, 2, 0]
+    c2.new.a.should == [4, 8, 0]
+    c.superclass = c2
+    c.new.a.should == [1, 2, 4, 8, 0]
+  end
+
+  specify "should ignore existing superclasses and modules included in them" do
+    c = Class.new{def a() [1] + super end; include Module.new{def a() [2] + (super rescue [0]) end}}
+    c2 = Class.new(c){def a() [4] + super end; include Module.new{def a() [8] + (super rescue [0]) end}}
+    c2.new.a.should == [4, 8, 1, 2, 0]
+    c2.superclass = Object
+    c2.new.a.should == [4, 8, 0]
+  end
+end
+
 describe "Object#flags" do
   after{GC.start}
 

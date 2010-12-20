@@ -24,6 +24,8 @@ instance variables, or method tables).
     singleton, becoming the object's main class.
   * dup_singleton_class : Make a copy of the current singleton
     class as a regular class.
+  * evilr_debug_print : Print method ancestry chain to standard
+    output.
   * pop_singleton_class : Remove closest singleton class from the
     object
   * push_singleton_class : Add a new singleton class to the object
@@ -46,6 +48,7 @@ instance variables, or method tables).
     its singleton status.
   * singleton_class_instance : If the class is a singleton class,
     return the related instance.
+  * superclass= : Modify the superclass of the receiver.
   * to_module : Return a copy of the class as a module.
 
 == Good bugs
