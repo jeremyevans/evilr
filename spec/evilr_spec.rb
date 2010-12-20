@@ -360,6 +360,17 @@ describe "Class#to_module" do
     o.instance_eval{def a() super end}
     proc{o.a}.should raise_error(NoMethodError)
   end
+
+  specify "should include modules included in class" do
+    c = Class.new{def a() [1] + super end; include Module.new{def a() [2] + (super rescue [0]) end}}
+    Class.new{def a() [4] + super end; include c.to_module}.new.a.should == [4, 1, 2, 0]
+  end
+
+  specify "should not include superclass or modules included in superclass" do
+    c = Class.new{def a() [1] + super end; include Module.new{def a() [2] end}}
+    sc = Class.new(c){def a() [4] + super end; include Module.new{def a() [8] + (super rescue [0]) end}}
+    Class.new{def a() [16] + super end; include sc.to_module}.new.a.should == [16, 4, 8, 0]
+  end
 end
 
 describe "Class#detach_singleton" do

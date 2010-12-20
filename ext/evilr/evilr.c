@@ -270,7 +270,7 @@ static VALUE evilr_singleton_class_instance(VALUE klass) {
 }
 
 static VALUE evilr_to_module(VALUE klass) {
-  VALUE mod;
+  VALUE mod, iclass;
 
   if (IS_SINGLETON_CLASS(klass)) {
     if((mod = evilr_singleton_class_instance(klass))) {
@@ -286,6 +286,10 @@ static VALUE evilr_to_module(VALUE klass) {
   RBASIC_SET_KLASS(mod, rb_cModule);
   FL_UNSET(mod, T_MASK);
   FL_SET(mod, T_MODULE);
+
+  iclass = evilr__iclass_before_next_class(mod);
+  RCLASS_SET_SUPER(iclass, NULL);
+
   return mod;
 }
 
