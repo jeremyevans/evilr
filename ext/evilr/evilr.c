@@ -83,26 +83,6 @@ void evilr__check_obj_and_class(VALUE self, VALUE klass) {
   evilr__check_type(T_CLASS, klass);
 }
 
-static VALUE evilr__debug_print(VALUE self) {
-  if (self == NULL) {
-    return Qnil;
-  }
-  evilr__check_immediate(self);
-  switch(BUILTIN_TYPE(self)) {
-    case T_CLASS:
-    case T_ICLASS:
-    case T_MODULE:
-      printf("self %p klass %p flags %ld iv_tbl %p m_tbl %p super %p\n", (void *)self, (void *)RBASIC_KLASS(self), RBASIC_FLAGS(self), (void *)ROBJECT_IV_INDEX_TBL(self), (void *)RCLASS_M_TBL(self), (void *)RCLASS_SUPER(self));
-      self = RCLASS_SUPER(self);
-      break;
-    default:
-      printf("self %p klass %p flags %ld iv_tbl %p\n", (void *)self, (void *)RBASIC_KLASS(self), RBASIC_FLAGS(self), (void *)ROBJECT_IV_INDEX_TBL(self));
-      self = RBASIC_KLASS(self);
-      break;
-  }
-  return evilr__debug_print(self);
-}
-
 static VALUE evilr__optional_class(int argc, VALUE *argv) {
   VALUE klass;
 
@@ -137,6 +117,26 @@ static VALUE evilr_class_e(VALUE self, VALUE klass) {
 
   RBASIC_SET_KLASS(self, klass);
   return self;
+}
+
+static VALUE evilr_debug_print(VALUE self) {
+  if (self == NULL) {
+    return Qnil;
+  }
+  evilr__check_immediate(self);
+  switch(BUILTIN_TYPE(self)) {
+    case T_CLASS:
+    case T_ICLASS:
+    case T_MODULE:
+      printf("self %p klass %p flags %ld iv_tbl %p m_tbl %p super %p\n", (void *)self, (void *)RBASIC_KLASS(self), RBASIC_FLAGS(self), (void *)ROBJECT_IV_INDEX_TBL(self), (void *)RCLASS_M_TBL(self), (void *)RCLASS_SUPER(self));
+      self = RCLASS_SUPER(self);
+      break;
+    default:
+      printf("self %p klass %p flags %ld iv_tbl %p\n", (void *)self, (void *)RBASIC_KLASS(self), RBASIC_FLAGS(self), (void *)ROBJECT_IV_INDEX_TBL(self));
+      self = RBASIC_KLASS(self);
+      break;
+  }
+  return evilr_debug_print(self);
 }
 
 static VALUE evilr_swap_singleton_class(VALUE self, VALUE other) {
@@ -309,6 +309,7 @@ void Init_evilr(void) {
   evilr__attached = rb_intern("__attached__");
 
   rb_define_method(rb_cObject, "class=", evilr_class_e, 1);
+  rb_define_method(rb_cObject, "evilr_debug_print", evilr_debug_print, 0);
   rb_define_method(rb_cObject, "flags", evilr_flags, 0);
   rb_define_method(rb_cObject, "detach_singleton_class", evilr_detach_singleton_class, 0);
   rb_define_method(rb_cObject, "dup_singleton_class", evilr_dup_singleton_class, -1);
