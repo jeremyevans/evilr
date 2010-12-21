@@ -69,6 +69,16 @@ static VALUE evilr__iclass_before_next_class(VALUE klass) {
   return i == NULL ? klass : i;
 }
 
+static VALUE evilr__iclass_matching(VALUE klass, VALUE mod) {
+  VALUE c;
+  for (c = RCLASS_SUPER(klass); c; c = RCLASS_SUPER(c)) {
+    if (BUILTIN_TYPE(c) == T_ICLASS && RBASIC_KLASS(c) == mod) {
+      return c;
+    }
+  }
+  return NULL;
+}
+
 void evilr__reparent_singleton_class(VALUE self, VALUE klass) {
   VALUE self_klass = RBASIC_KLASS(self);
 
@@ -201,6 +211,51 @@ static VALUE evilr_set_safe_level(VALUE self, VALUE safe) {
   ruby_safe_level = s;
 #endif
   return safe;
+}
+
+static VALUE evilr_uninclude(VALUE klass, VALUE mod) {
+  VALUE cur, prev;
+
+  evilr__check_immediate(mod);
+  evilr__check_type(T_MODULE, mod);
+
+  for (prev = klass, cur = RCLASS_SUPER(klass); cur ; prev = cur, cur = RCLASS_SUPER(cur)) {
+    if (BUILTIN_TYPE(prev) == T_CLASS) {
+      rb_clear_cache_by_class(prev);
+    }
+    if (BUILTIN_TYPE(cur) == T_ICLASS && RBASIC_KLASS(cur) == mod) {
+      RCLASS_SET_SUPER(prev, RCLASS_SUPER(cur));
+      return mod;
+    }
+  }
+
+  return Qnil;
+}
+
+#define INCLUDE_BETWEEN_VAL(x) (x) ? (BUILTIN_TYPE(x) == T_ICLASS ? RBASIC_KLASS(x) : (x)) : Qnil
+static VALUE evilr_include_between(VALUE klass, VALUE mod) {
+  VALUE iclass, prev, cur;
+
+  evilr__check_immediate(mod);
+  evilr__check_type(T_MODULE, mod);
+
+  /* Create ICLASS for module by inserting it and removing it.
+   * If module already in super chain, will change it's position. */
+  rb_include_module(klass, mod);
+  iclass = evilr__iclass_matching(klass, mod);
+  evilr_uninclude(klass, mod);
+
+  for (prev = klass, cur = RCLASS_SUPER(klass); prev ; prev = cur, cur = cur ? RCLASS_SUPER(cur) : cur) {
+    if (BUILTIN_TYPE(prev) == T_CLASS) {
+      rb_clear_cache_by_class(prev);
+    }
+    if (rb_yield_values(2, INCLUDE_BETWEEN_VAL(prev), INCLUDE_BETWEEN_VAL(cur)) == Qtrue) {
+      RCLASS_SET_SUPER(prev, iclass);
+      RCLASS_SET_SUPER(iclass, cur);
+      return mod;
+    }
+  }
+  return Qnil;
 }
 
 static VALUE evilr_detach_singleton(VALUE klass) {
@@ -364,7 +419,9 @@ void Init_evilr(void) {
 
   rb_define_method(rb_mKernel, "set_safe_level", evilr_set_safe_level, 1);
 
+  rb_define_method(rb_cModule, "include_between", evilr_include_between, 1);
   rb_define_method(rb_cModule, "to_class", evilr_to_class, -1);
+  rb_define_method(rb_cModule, "uninclude", evilr_uninclude, 1);
 
   rb_define_method(rb_cClass, "detach_singleton", evilr_detach_singleton, 0);
   rb_define_method(rb_cClass, "inherit", evilr_inherit, -1);

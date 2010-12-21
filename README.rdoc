@@ -42,7 +42,15 @@ instance variables, or method tables).
 * Kernel
   * set_safe_level : Allows you to lower ruby's $SAFE level.
 * Module
+  * include_between : Given a module and a block, calls the block
+    repeatedly with two arguments, each a module or class in the super 
+    chain.  The first time the block returns true, the module argument
+    given to the method is inserted between the given modules.  Continues
+    until the end of the super chain. If the argument given is already
+    included, will remove it and reinsert it.
   * to_class : Return a copy of the module as a class.
+  * uninclude : Remove the given module from the super chain, including
+    going into superclasses if the receiver is a class.
 * Class
   * detach_singleton : If the class is a singleton class, remove
     its singleton status.

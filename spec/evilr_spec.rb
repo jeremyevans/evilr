@@ -703,3 +703,135 @@ describe "Object#flags" do
     Module.new.flags.should_not == Class.new.flags
   end
 end
+
+describe "Module#uninclude" do
+  after{GC.start}
+
+  specify "should raise an exception for immediate values" do
+    proc{Module.new.uninclude nil}.should raise_error(TypeError)
+  end
+
+  specify "should raise an exception for non-module arguments" do
+    proc{Module.new.uninclude Object.new}.should raise_error(TypeError)
+    proc{Module.new.uninclude Class.new}.should raise_error(TypeError)
+  end
+
+  specify "should uninclude the given module from the module/class" do
+    m1 = Module.new{def a() [1] + (super rescue [0]) end}
+    m2 = Module.new{def a() [2] + (super rescue [0]) end}
+    m3 = Module.new{def a() [4] + (super rescue [0]) end}
+    m1.send :include, m2
+    m1.send :include, m3
+
+    c = Class.new{include m1}
+    c.new.a.should == [1, 4, 2, 0]
+    c.uninclude m1
+    c.new.a.should == [4, 2, 0]
+    c.uninclude m2
+    c.new.a.should == [4, 0]
+
+    m1.uninclude m3
+    Class.new{include m1}.new.a.should == [1, 2, 0]
+    m1.uninclude m2
+    Class.new{include m1}.new.a.should == [1, 0]
+  end
+
+  specify "should traverse into superclasses" do
+    m1 = Module.new{def a() [1] + (super rescue [0]) end}
+    m2 = Module.new{def a() [2] + (super rescue [0]) end}
+    m3 = Module.new{def a() [4] + (super rescue [0]) end}
+    m1.send :include, m2
+
+    c = Class.new{def a() [8] + (super rescue [0]) end; include m1}
+    c = Class.new(c){def a() [16] + (super rescue [0]) end; include m3}
+    c.new.a.should == [16, 4, 8, 1, 2, 0]
+    c.uninclude m1
+    c.new.a.should == [16, 4, 8, 2, 0]
+    c.uninclude m2
+    c.new.a.should == [16, 4, 8, 0]
+    c.uninclude m3
+    c.new.a.should == [16, 8, 0]
+  end
+
+  specify "should return module if module included" do
+    m = Module.new
+    m2 = Module.new{include m}
+    m2.uninclude(m).should == m
+  end
+
+  specify "should return nil if module not included" do
+    Module.new.uninclude(Module.new).should == nil
+  end
+end
+
+describe "Module#include_between" do
+  after{GC.start}
+
+  specify "should raise an exception for immediate values" do
+    proc{Module.new.include_between(nil){|p,c|}}.should raise_error(TypeError)
+  end
+
+  specify "should raise an exception for non-module arguments" do
+    proc{Module.new.include_between(Object.new){|p,c|}}.should raise_error(TypeError)
+    proc{Module.new.include_between(Class.new){|p,c|}}.should raise_error(TypeError)
+  end
+
+  specify "should raise an exception if a block is not given" do
+    proc{Module.new.include_between(Module.new)}.should raise_error(LocalJumpError)
+  end
+
+  specify "should include the module between the block's modules if the block returns true" do
+    m1 = Module.new{def a() [1] + (super rescue [0]) end}
+    m2 = Module.new{def a() [2] + (super rescue [0]) end}
+    m3 = Module.new{def a() [4] + (super rescue [0]) end}
+    
+    c = Class.new
+    c.include_between(m1){|prev, cur| true}
+    c.include_between(m2){|prev, cur| cur == Object}
+    c.include_between(m3){|prev, cur| prev == m1}
+    c.new.a.should == [1, 4, 2, 0]
+  end
+
+  specify "should traverse into superclasses" do
+    m1 = Module.new{def a() [1] + (super rescue [0]) end}
+    m2 = Module.new{def a() [2] + (super rescue [0]) end}
+    m3 = Module.new{def a() [4] + (super rescue [0]) end}
+    
+    c = Class.new{def a() [8] + (super rescue [0]) end}
+    sc = Class.new(c){def a() [16] + (super rescue [0]) end}
+    sc.include_between(m1){|prev, cur| prev == c}
+    sc.include_between(m2){|prev, cur| cur == m1}
+    sc.include_between(m3){|prev, cur| true}
+    c.new.a.should == [8, 2, 1, 0]
+    sc.new.a.should == [16, 4, 8, 2, 1, 0]
+  end
+
+  specify "should have first block call first argument be current module/class" do
+     c = Class.new
+     c.include_between(Module.new){|prev, cur| prev.should == c; break}
+  end
+
+  specify "should have last block call last argument be nil" do
+     c = Class.new
+     x = 1
+     c.include_between(Module.new){|prev, cur| x = cur}
+     x.should == nil
+  end
+
+  specify "should have superclass as both last and first argument at some point, if not returned" do
+     c = Class.new
+     a = []
+     c.include_between(Module.new){|prev, cur| a << :prev if prev == c.superclass; a << :cur if cur == c.superclass}
+     a.should == [:cur, :prev]
+  end
+
+  specify "should return module if module included" do
+    m = Module.new
+    m2 = Module.new{include m}
+    m2.include_between(m){|p, c| true}.should == m
+  end
+
+  specify "should return nil if module not included" do
+    Module.new.include_between(Module.new){|p, c|}.should == nil
+  end
+end
