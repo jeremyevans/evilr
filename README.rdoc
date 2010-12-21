@@ -46,6 +46,7 @@ instance variables, or method tables).
     singleton class, replacing any existing singleton class.
   * swap_singleton_class : Swap an object's singleton class with
     another object's singleton class.
+  * swap_instance_variables: Swap two instance's instance variables.
   * unextend : Remove a module that extends the object from the super
     chain.
   * unfreeze : Unfreeze the object.

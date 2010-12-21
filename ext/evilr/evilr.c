@@ -1,3 +1,6 @@
+#include <string.h>
+#include <stdio.h>
+
 #include <ruby.h> 
 #ifdef RUBY19
 #include <ruby/st.h> 
@@ -32,6 +35,11 @@ static void evilr__check_immediate(VALUE self) {
   if (SPECIAL_CONST_P(self)) {
     rb_raise(rb_eTypeError, "can't use immediate value");
   }
+}
+
+static void evilr__check_immediates(VALUE self, VALUE other) {
+  evilr__check_immediate(self);
+  evilr__check_immediate(other);
 }
 
 static void evilr__check_type(unsigned int type, VALUE self) {
@@ -98,8 +106,7 @@ void evilr__reparent_class(VALUE self, VALUE klass) {
 }
 
 void evilr__check_obj_and_class(VALUE self, VALUE klass) {
-  evilr__check_immediate(self);
-  evilr__check_immediate(klass);
+  evilr__check_immediates(self, klass);
   evilr__check_type(T_CLASS, klass);
 }
 
@@ -171,11 +178,27 @@ static VALUE evilr_debug_print(VALUE self) {
   return evilr_debug_print(self);
 }
 
+static VALUE evilr_swap_instance_variables(VALUE self, VALUE other) {
+#ifdef RUBY19
+  VALUE tmp = rb_newobj();
+  evilr__check_immediates(self, other);
+  memcpy(&(ROBJECT(tmp)->as), &(ROBJECT(self)->as), sizeof(ROBJECT(tmp)->as));
+  memcpy(&(ROBJECT(self)->as), &(ROBJECT(other)->as), sizeof(ROBJECT(self)->as));
+  memcpy(&(ROBJECT(other)->as), &(ROBJECT(tmp)->as), sizeof(ROBJECT(other)->as));
+#else
+  st_table *tmp;
+  evilr__check_immediates(self, other);
+  tmp = ROBJECT_IV_INDEX_TBL(self);
+  ROBJECT(self)->iv_tbl = ROBJECT(other)->iv_tbl;
+  ROBJECT(other)->iv_tbl = tmp;
+#endif
+  return self;
+}
+
 static VALUE evilr_swap_singleton_class(VALUE self, VALUE other) {
   VALUE tmp;
 
-  evilr__check_immediate(self);
-  evilr__check_immediate(other);
+  evilr__check_immediates(self, other);
 
   /* Create singleton classes to be swapped if they doesn't exist */
   (void)rb_singleton_class(other);
@@ -239,8 +262,7 @@ static VALUE evilr_uninclude(VALUE klass, VALUE mod) {
 static VALUE evilr_unextend(VALUE self, VALUE mod) {
   VALUE prev, cur;
 
-  evilr__check_immediate(self);
-  evilr__check_immediate(mod);
+  evilr__check_immediates(self, mod);
   evilr__check_type(T_MODULE, mod);
 
   self = rb_singleton_class(self);
@@ -284,8 +306,7 @@ static VALUE evilr_include_between(VALUE klass, VALUE mod) {
 static VALUE evilr_extend_between(VALUE self, VALUE mod) {
   VALUE sc, iclass, klass, prev, cur;
 
-  evilr__check_immediate(self);
-  evilr__check_immediate(mod);
+  evilr__check_immediates(self, mod);
   evilr__check_type(T_MODULE, mod);
 
   sc = rb_singleton_class(self);
@@ -464,6 +485,7 @@ void Init_evilr(void) {
   rb_define_method(rb_cObject, "remove_singleton_class", evilr_remove_singleton_class, 0);
   rb_define_method(rb_cObject, "remove_singleton_classes", evilr_remove_singleton_classes, 0);
   rb_define_method(rb_cObject, "set_singleton_class", evilr_set_singleton_class, 1);
+  rb_define_method(rb_cObject, "swap_instance_variables", evilr_swap_instance_variables, 1);
   rb_define_method(rb_cObject, "swap_singleton_class", evilr_swap_singleton_class, 1);
   rb_define_method(rb_cObject, "unextend", evilr_unextend, 1);
   rb_define_method(rb_cObject, "unfreeze", evilr_unfreeze, 0);

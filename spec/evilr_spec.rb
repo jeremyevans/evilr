@@ -704,6 +704,30 @@ describe "Object#flags" do
   end
 end
 
+describe "Object#swap_instance_variables" do
+  after{GC.start}
+
+  specify "should raise an exception for immediate values" do
+    proc{nil.swap_instance_variables(Object.new)}.should raise_error(TypeError)
+    proc{Object.new.swap_instance_variables(nil)}.should raise_error(TypeError)
+  end
+
+  specify "should swap the instance's instance variables" do
+    o1 = Object.new
+    o2 = Object.new
+    o1.instance_eval{@a = 1; @c = 3}
+    o2.instance_eval{@a = 4; @b = 2}
+    o1.swap_instance_variables(o2)
+    o2.instance_eval{@a.should == 1; @c.should == 3}
+    o1.instance_eval{@a.should == 4; @b.should == 2}
+  end
+
+  specify "should return self" do
+    o = Object.new
+    o.swap_singleton_class(Object.new).should equal(o)
+  end
+end
+
 describe "Module#uninclude" do
   after{GC.start}
 
