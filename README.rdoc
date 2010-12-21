@@ -59,6 +59,8 @@ instance variables, or method tables).
     given to the method is inserted between the given modules.  Continues
     until the end of the super chain. If the argument given is already
     included, will remove it and reinsert it.
+  * swap_method_tables : Swap the method tables of the receiver with
+    the ones in the given module/class.
   * to_class : Return a copy of the module as a class.
   * uninclude : Remove the given module from the super chain, including
     going into superclasses if the receiver is a class.

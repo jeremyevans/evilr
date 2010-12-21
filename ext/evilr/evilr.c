@@ -186,12 +186,28 @@ static VALUE evilr_swap_instance_variables(VALUE self, VALUE other) {
   memcpy(&(ROBJECT(self)->as), &(ROBJECT(other)->as), sizeof(ROBJECT(self)->as));
   memcpy(&(ROBJECT(other)->as), &(ROBJECT(tmp)->as), sizeof(ROBJECT(other)->as));
 #else
-  st_table *tmp;
+  struct st_table *tmp;
   evilr__check_immediates(self, other);
   tmp = ROBJECT_IV_INDEX_TBL(self);
   ROBJECT(self)->iv_tbl = ROBJECT(other)->iv_tbl;
   ROBJECT(other)->iv_tbl = tmp;
 #endif
+  return self;
+}
+
+static VALUE evilr_swap_method_tables(VALUE self, VALUE other) {
+  struct st_table *tmp;
+
+  evilr__check_immediate(other);
+  if(BUILTIN_TYPE(other) != T_MODULE && BUILTIN_TYPE(other) != T_CLASS) {
+    rb_raise(rb_eTypeError, "non-class or module used");
+  }
+
+  tmp = RCLASS_M_TBL(self);
+  RCLASS(self)->m_tbl = RCLASS_M_TBL(other);
+  RCLASS(other)->m_tbl = tmp;
+  rb_clear_cache_by_class(self);
+  rb_clear_cache_by_class(other);
   return self;
 }
 
@@ -493,6 +509,7 @@ void Init_evilr(void) {
   rb_define_method(rb_mKernel, "set_safe_level", evilr_set_safe_level, 1);
 
   rb_define_method(rb_cModule, "include_between", evilr_include_between, 1);
+  rb_define_method(rb_cModule, "swap_method_tables", evilr_swap_method_tables, 1);
   rb_define_method(rb_cModule, "to_class", evilr_to_class, -1);
   rb_define_method(rb_cModule, "uninclude", evilr_uninclude, 1);
 

@@ -724,7 +724,42 @@ describe "Object#swap_instance_variables" do
 
   specify "should return self" do
     o = Object.new
-    o.swap_singleton_class(Object.new).should equal(o)
+    o.swap_instance_variables(Object.new).should equal(o)
+  end
+end
+
+describe "Module#swap_method_tables" do
+  after{GC.start}
+
+  specify "should raise an exception for immediate values" do
+    proc{Class.new.swap_method_tables(nil)}.should raise_error(TypeError)
+  end
+
+  specify "should raise an exception for non-module arguments" do
+    proc{Class.new.swap_method_tables(Object.new)}.should raise_error(TypeError)
+  end
+
+  specify "should swap the module's method tables" do
+    c1 = Class.new{def a() 1 end; def b() 3 end}
+    c2 = Class.new{def a() 4 end; def c() 2 end}
+    c1.new.a.should == 1
+    c2.new.a.should == 4
+    c1.new.b.should == 3
+    c2.new.c.should == 2
+    proc{c1.new.c}.should raise_error(NoMethodError)
+    proc{c2.new.b}.should raise_error(NoMethodError)
+    c1.swap_method_tables(c2)
+    c2.new.a.should == 1
+    c1.new.a.should == 4
+    c2.new.b.should == 3
+    c1.new.c.should == 2
+    proc{c2.new.c}.should raise_error(NoMethodError)
+    proc{c1.new.b}.should raise_error(NoMethodError)
+  end
+
+  specify "should return self" do
+    c = Class.new
+    c.swap_method_tables(Class.new).should equal(c)
   end
 end
 
