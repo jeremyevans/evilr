@@ -353,9 +353,44 @@ describe "Class#to_module" do
     Class.new{include c.to_module}.new.a.should == 1
   end
 
+  specify "should not modify the class's superclass" do
+    c = Class.new{def a() [1] end}
+    sc = Class.new(c){def a() [2] + (super rescue [0]) end}
+    Class.new{include sc.to_module}.new.a.should == [2, 0]
+    sc.superclass.should == c
+    sc.new.a.should == [2, 1]
+  end
+
+  specify "should not modify the class's superclass if modules are included" do
+    c = Class.new{def a() [1] end}
+    sc = Class.new(c){def a() [2] + (super rescue [0]) end; include Module.new}
+    Class.new{include sc.to_module}.new.a.should == [2, 0]
+    sc.superclass.should == c
+    sc.new.a.should == [2, 1]
+  end
+
+  specify "should handle the order of multiple included modules correctly" do
+    c = Class.new{def a() [1] end}
+    sc = Class.new(c){def a() [2] + (super rescue [0]) end}
+    sc.send :include, Module.new{def a() [4] + (super rescue [0]) end}
+    sc.send :include, Module.new{def a() [8] + (super rescue [0]) end}
+    Class.new{include sc.to_module}.new.a.should == [2, 8, 4, 0]
+    sc.superclass.should == c
+    sc.new.a.should == [2, 8, 4, 1]
+  end
+
   specify "should handle singleton classes without modifying them" do
     o = Object.new
     o.instance_eval{def a() 1 end}
+    Class.new{include (class << o; self; end).to_module}.new.a.should == 1
+    o.instance_eval{def a() super end}
+    proc{o.a}.should raise_error(NoMethodError)
+  end
+
+  specify "should handle singleton classes without modifying them if modules are included" do
+    o = Object.new
+    o.instance_eval{def a() 1 end}
+    o.extend Module.new
     Class.new{include (class << o; self; end).to_module}.new.a.should == 1
     o.instance_eval{def a() super end}
     proc{o.a}.should raise_error(NoMethodError)
@@ -611,6 +646,45 @@ describe "Class#superclass=" do
     c2.new.a.should == [4, 8, 1, 2, 0]
     c2.superclass = Object
     c2.new.a.should == [4, 8, 0]
+  end
+end
+
+describe "Class#inherit" do
+  after{GC.start}
+
+  specify "should raise an exception for immediate values" do
+    proc{Class.new.inherit nil}.should raise_error(TypeError)
+  end
+
+  specify "should raise an exception for non-class arguments" do
+    proc{Class.new.inherit Object.new}.should raise_error(TypeError)
+  end
+
+  specify "should raise an exception for incompatible types" do
+    proc{Class.new.inherit String}.should raise_error(TypeError)
+  end
+
+  specify "should include the classes as modules" do
+    c = Class.new{def a() [1] + (super rescue [0]) end}
+    c2 = Class.new{def a() [2] + super end}
+    sc = Class.new{def a() [4] + super end; inherit c, c2}
+    sc.new.a.should == [4, 2, 1, 0]
+  end
+
+  specify "should keep any included modules" do
+    c = Class.new{def a() [1] + super end; include Module.new{def a() [2] + (super rescue [0]) end}}
+    c2 = Class.new{def a() [4] + super end; include Module.new{def a() [8] + (super rescue [0]) end}}
+    sc = Class.new{def a() [16] + super end; inherit c, c2}
+    sc.new.a.should == [16, 4, 8, 1, 2, 0]
+  end
+
+  specify "should ignore superclasses of arguments, and keep superclass of current class" do
+    c = Class.new{def a() [1] + super end; include Module.new{def a() [2] + (super rescue [0]) end}}
+    sc1 = Class.new(c){def a() [4] + super end; include Module.new{def a() [8] + (super rescue [0]) end}}
+    sc2 = Class.new(c){def a() [16] + super end; include Module.new{def a() [32] + (super rescue [0]) end}}
+    Class.new{def a() [64] + super end; inherit sc1, sc2}.new.a.should == [64, 16, 32, 4, 8, 0]
+    Class.new(sc2){def a() [64] + super end; inherit sc1}.new.a.should == [64, 4, 8, 16, 32, 1, 2, 0]
+    Class.new(sc2){def a() [64] + super end; inherit sc1}.superclass.should == sc2
   end
 end
 

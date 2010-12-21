@@ -46,6 +46,8 @@ instance variables, or method tables).
 * Class
   * detach_singleton : If the class is a singleton class, remove
     its singleton status.
+  * inherit : Allows inheriting from multiple classes, basically
+    including them as modules.
   * singleton_class_instance : If the class is a singleton class,
     return the related instance.
   * superclass= : Modify the superclass of the receiver.

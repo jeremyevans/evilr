@@ -113,6 +113,20 @@ void evilr__make_singleton(VALUE self, VALUE klass) {
   rb_singleton_class_attached(klass, self);
 }
 
+void evilr__check_compatible_classes(VALUE klass, VALUE super) {
+  evilr__check_immediate(super);
+  evilr__check_type(T_CLASS, super);
+  evilr__check_class_type(evilr__class_type(klass), super);
+  evilr__check_data_type(rb_obj_alloc(klass));
+}
+
+void evilr__include_iclasses(VALUE mod, VALUE iclass) {
+  if (iclass && BUILTIN_TYPE(iclass) == T_ICLASS) {
+    evilr__include_iclasses(mod, RCLASS_SUPER(iclass));
+    rb_include_module(mod, RBASIC_KLASS(iclass));
+  }
+}
+
 
 static VALUE evilr_class_e(VALUE self, VALUE klass) {
   evilr__check_immediate(self);
@@ -288,11 +302,11 @@ static VALUE evilr_to_module(VALUE klass) {
   }
 
   RBASIC_SET_KLASS(mod, rb_cModule);
+  iclass = RCLASS_SUPER(mod);
+  RCLASS_SET_SUPER(mod, NULL);
   FL_UNSET(mod, T_MASK);
   FL_SET(mod, T_MODULE);
-
-  iclass = evilr__iclass_before_next_class(mod);
-  RCLASS_SET_SUPER(iclass, NULL);
+  evilr__include_iclasses(mod, iclass);
 
   return mod;
 }
@@ -315,14 +329,20 @@ static VALUE evilr_flags(VALUE self) {
 
 static VALUE evilr_superclass_e(VALUE klass, VALUE super) {
   VALUE iclass;
-
-  evilr__check_immediate(super);
-  evilr__check_type(T_CLASS, super);
-  evilr__check_class_type(evilr__class_type(klass), super);
-  evilr__check_data_type(rb_obj_alloc(klass));
-
+  evilr__check_compatible_classes(klass, super);
   iclass = evilr__iclass_before_next_class(klass);
   RCLASS_SET_SUPER(iclass, super);
+  return super;
+}
+
+static VALUE evilr_inherit(int argc, VALUE* argv, VALUE klass) {
+  int i;
+
+  for(i = 0; i < argc; i++) {
+    evilr__check_compatible_classes(klass, argv[i]);
+    rb_include_module(klass, evilr_to_module(argv[i]));
+  }
+
   return klass;
 }
 
@@ -347,6 +367,7 @@ void Init_evilr(void) {
   rb_define_method(rb_cModule, "to_class", evilr_to_class, -1);
 
   rb_define_method(rb_cClass, "detach_singleton", evilr_detach_singleton, 0);
+  rb_define_method(rb_cClass, "inherit", evilr_inherit, -1);
   rb_define_method(rb_cClass, "singleton_class_instance", evilr_singleton_class_instance, 0);
   rb_define_method(rb_cClass, "superclass=", evilr_superclass_e, 1);
   rb_define_method(rb_cClass, "to_module", evilr_to_module, 0);
