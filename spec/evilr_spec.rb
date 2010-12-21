@@ -1,8 +1,10 @@
 $:.unshift(File.join(File.dirname(File.dirname(File.expand_path(__FILE__)))), 'lib')
 require 'evilr'
 
+describe "" do
+after{GC.start} # GC after spec to make sure nothing broke
+
 describe "Object#class=" do
-  after{GC.start} # GC after spec to make sure nothing broke
   before do
     @o = Class.new.new
     @c = Class.new
@@ -30,8 +32,6 @@ describe "Object#class=" do
 end
 
 describe "Object#dup_singleton_class" do
-  after{GC.start}
-
   specify "should raise an exception for immediate values" do
     proc{nil.dup_singleton_class}.should raise_error(TypeError)
   end
@@ -69,8 +69,6 @@ describe "Object#dup_singleton_class" do
 end
 
 describe "Object\#{push,pop}_singleton_class" do
-  after{GC.start}
-
   specify "both should raise an exception for immediate values" do
     proc{nil.push_singleton_class(Class.new)}.should raise_error(TypeError)
     proc{nil.pop_singleton_class}.should raise_error(TypeError)
@@ -141,8 +139,6 @@ describe "Object\#{push,pop}_singleton_class" do
 end
 
 describe "Objec#remove_singleton_classes" do
-  after{GC.start}
-
   specify "should raise an exception for immediate values" do
     proc{nil.remove_singleton_classes}.should raise_error(TypeError)
   end
@@ -185,7 +181,6 @@ describe "Objec#remove_singleton_classes" do
 end
 
 describe "Object#swap_singleton_class" do
-  after{GC.start}
   before do
     @o1 = Class.new.new
     @o2 = Class.new.new
@@ -253,7 +248,6 @@ describe "Object#swap_singleton_class" do
 end
 
 describe "Object#unfreeze" do
-  after{GC.start}
   before do
     @o = Object.new
     @o.freeze
@@ -296,8 +290,6 @@ describe "Object#unfreeze" do
 end
 
 describe "Kernel#set_safe_level" do
-  after{GC.start}
-
   specify "should allow the lowering of the $SAFE level" do
     $SAFE = 1
     set_safe_level(0)
@@ -306,8 +298,6 @@ describe "Kernel#set_safe_level" do
 end
 
 describe "Module#to_class" do
-  after{GC.start}
-
   specify "should return the module in class form" do
     Module.new{def a() 1 end}.to_class.new.a.should == 1
   end
@@ -346,8 +336,6 @@ describe "Module#to_class" do
 end
 
 describe "Class#to_module" do
-  after{GC.start}
-
   specify "should return the class in module form" do
     c = Class.new{def a() 1 end}
     Class.new{include c.to_module}.new.a.should == 1
@@ -409,8 +397,6 @@ describe "Class#to_module" do
 end
 
 describe "Class#detach_singleton" do
-  after{GC.start}
-
   specify "should be a no-op on a non-singleton class" do
     Class.new{def a() 1 end}.detach_singleton.new.a.should == 1
   end
@@ -433,8 +419,6 @@ describe "Class#detach_singleton" do
 end
 
 describe "Object#set_singleton_class" do
-  after{GC.start}
-
   specify "should raise an exception for immediate values" do
     proc{nil.set_singleton_class(Class.new)}.should raise_error(TypeError)
   end
@@ -498,8 +482,6 @@ describe "Object#set_singleton_class" do
 end
 
 describe "Object#detach_singleton_class" do
-  after{GC.start}
-
   specify "should raise an exception for immediate values" do
     proc{nil.detach_singleton_class}.should raise_error(TypeError)
   end
@@ -541,8 +523,6 @@ describe "Object#detach_singleton_class" do
 end
 
 describe "Object#remove_singleton_class" do
-  after{GC.start}
-
   specify "should raise an exception for immediate values" do
     proc{nil.remove_singleton_class}.should raise_error(TypeError)
   end
@@ -596,8 +576,6 @@ describe "Object#remove_singleton_class" do
 end
 
 describe "Class#singleton_class_instance" do
-  after{GC.start}
-
   specify "should return nil for a non-singleton class" do
     Class.new.singleton_class_instance.should == nil
   end
@@ -609,8 +587,6 @@ describe "Class#singleton_class_instance" do
 end
 
 describe "Class#superclass=" do
-  after{GC.start}
-
   specify "should raise an exception for immediate values" do
     proc{Class.new.superclass = nil}.should raise_error(TypeError)
   end
@@ -650,8 +626,6 @@ describe "Class#superclass=" do
 end
 
 describe "Class#inherit" do
-  after{GC.start}
-
   specify "should raise an exception for immediate values" do
     proc{Class.new.inherit nil}.should raise_error(TypeError)
   end
@@ -689,8 +663,6 @@ describe "Class#inherit" do
 end
 
 describe "Object#flags" do
-  after{GC.start}
-
   specify "should raise an exception for immediate values" do
     proc{nil.flags}.should raise_error(TypeError)
   end
@@ -705,8 +677,6 @@ describe "Object#flags" do
 end
 
 describe "Object#swap_instance_variables" do
-  after{GC.start}
-
   specify "should raise an exception for immediate values" do
     proc{nil.swap_instance_variables(Object.new)}.should raise_error(TypeError)
     proc{Object.new.swap_instance_variables(nil)}.should raise_error(TypeError)
@@ -729,8 +699,6 @@ describe "Object#swap_instance_variables" do
 end
 
 describe "Module#swap_method_tables" do
-  after{GC.start}
-
   specify "should raise an exception for immediate values" do
     proc{Class.new.swap_method_tables(nil)}.should raise_error(TypeError)
   end
@@ -764,8 +732,6 @@ describe "Module#swap_method_tables" do
 end
 
 describe "Module#uninclude" do
-  after{GC.start}
-
   specify "should raise an exception for immediate values" do
     proc{Module.new.uninclude nil}.should raise_error(TypeError)
   end
@@ -824,8 +790,6 @@ describe "Module#uninclude" do
 end
 
 describe "Module#include_between" do
-  after{GC.start}
-
   specify "should raise an exception for immediate values" do
     proc{Module.new.include_between(nil){|p,c|}}.should raise_error(TypeError)
   end
@@ -896,8 +860,6 @@ describe "Module#include_between" do
 end
 
 describe "Object#unextend" do
-  after{GC.start}
-
   specify "should raise an exception if called on immediate values" do
     proc{nil.unextend Module.new}.should raise_error(TypeError)
   end
@@ -964,8 +926,6 @@ describe "Object#unextend" do
 end
 
 describe "Object#extend_between" do
-  after{GC.start}
-
   specify "should raise an exception if called on an immediate value" do
     proc{nil.extend_between(Module.new){|p,c|}}.should raise_error(TypeError)
   end
@@ -1041,4 +1001,4 @@ describe "Object#extend_between" do
     i.should == 1
   end
 end
-
+end
