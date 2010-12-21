@@ -894,5 +894,92 @@ describe "Object#unextend" do
   specify "should return nil if module did not extend the object" do
     Object.new.unextend(Module.new).should == nil
   end
+
+  specify "should correctly handle objects without existing singleton classes" do
+    m = Module.new{def a() [2] + (super rescue [0]) end}
+    c = Class.new{def a() [1] + (super rescue [0]) end; include m}
+    o = c.new
+    o.unextend(Module.new).should == nil
+    o.a.should == [1, 2, 0]
+  end
+end
+
+describe "Object#extend_between" do
+  after{GC.start}
+
+  specify "should raise an exception if called on an immediate value" do
+    proc{nil.extend_between(Module.new){|p,c|}}.should raise_error(TypeError)
+  end
+
+  specify "should raise an exception for immediate value arguments" do
+    proc{Object.new.extend_between(nil){|p,c|}}.should raise_error(TypeError)
+  end
+
+  specify "should raise an exception for non-module arguments" do
+    proc{Object.new.extend_between(Object.new){|p,c|}}.should raise_error(TypeError)
+    proc{Object.new.extend_between(Class.new){|p,c|}}.should raise_error(TypeError)
+  end
+
+  specify "should raise an exception if a block is not given" do
+    proc{Object.new.extend_between(Module.new)}.should raise_error(LocalJumpError)
+  end
+
+  specify "should raise an exception if module already included in object's class or superclass" do
+    m = Module.new
+    c = Class.new{include m}
+    proc{c.new.extend_between(m){|p, c|}}.should raise_error(ArgumentError)
+  end
+
+  specify "should include the module between the block's modules if the block returns true" do
+    m1 = Module.new{def a() [1] + (super rescue [0]) end}
+    m2 = Module.new{def a() [2] + (super rescue [0]) end}
+    m3 = Module.new{def a() [4] + (super rescue [0]) end}
+    
+    o = Object.new
+    o.extend_between(m1){|prev, cur| true}
+    o.extend_between(m2){|prev, cur| cur == Object}
+    o.extend_between(m3){|prev, cur| prev == m1}
+    o.a.should == [1, 4, 2, 0]
+    def o.a() [8] + super end
+    o.a.should == [8, 1, 4, 2, 0]
+  end
+
+  specify "should have first block call first argument be the receiver's singleton class" do
+     o = Object.new
+     o.extend_between(Module.new){|prev, cur| prev.should == class << o; self end; break}
+  end
+
+  specify "should have last block call last argument be object's class" do
+     c = Class.new
+     x = 1
+     c.new.extend_between(Module.new){|prev, cur| x = cur}
+     x.should == c
+  end
+
+  specify "should have extended modules as both last and first argument at some point" do
+     m  = Module.new
+     c = Class.new
+     o = c.new
+     o.extend m
+     a = []
+     o.extend_between(Module.new){|prev, cur| a << :prev if prev == m; a << :cur if cur == m}
+     a.should == [:cur, :prev]
+  end
+
+  specify "should return module if module included" do
+    m = Module.new
+    Object.new.extend_between(m){|p, c| true}.should == m
+  end
+
+  specify "should return nil if module not included" do
+    Object.new.extend_between(Module.new){|p, c|}.should == nil
+  end
+
+  specify "should handle objects without existing singleton classes" do
+    o = Object.new
+    i = 0
+    o.extend_between(Module.new){|p, c| p.should == (class << o; self end); c.should == Object; i += 1}
+    i.should == 1
+  end
 end
 

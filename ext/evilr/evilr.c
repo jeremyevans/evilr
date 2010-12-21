@@ -69,14 +69,18 @@ static VALUE evilr__iclass_before_next_class(VALUE klass) {
   return i == NULL ? klass : i;
 }
 
-static VALUE evilr__iclass_matching(VALUE klass, VALUE mod) {
+static VALUE evilr__iclass_matching_before(VALUE klass, VALUE mod, VALUE before) {
   VALUE c;
-  for (c = RCLASS_SUPER(klass); c; c = RCLASS_SUPER(c)) {
+  for (c = RCLASS_SUPER(klass); c && c != before; c = RCLASS_SUPER(c)) {
     if (BUILTIN_TYPE(c) == T_ICLASS && RBASIC_KLASS(c) == mod) {
       return c;
     }
   }
   return NULL;
+}
+
+static VALUE evilr__iclass_matching(VALUE klass, VALUE mod) {
+  return evilr__iclass_matching_before(klass, mod, NULL);
 }
 
 void evilr__reparent_singleton_class(VALUE self, VALUE klass) {
@@ -239,7 +243,7 @@ static VALUE evilr_unextend(VALUE self, VALUE mod) {
   evilr__check_immediate(mod);
   evilr__check_type(T_MODULE, mod);
 
-  self = RBASIC_KLASS(self);
+  self = rb_singleton_class(self);
   rb_clear_cache_by_class(self);
   for (prev = self, cur = RCLASS_SUPER(self); cur && BUILTIN_TYPE(cur) != T_CLASS; prev = cur, cur = RCLASS_SUPER(cur)) {
     if (BUILTIN_TYPE(cur) == T_ICLASS && RBASIC_KLASS(cur) == mod) {
@@ -268,6 +272,32 @@ static VALUE evilr_include_between(VALUE klass, VALUE mod) {
     if (BUILTIN_TYPE(prev) == T_CLASS) {
       rb_clear_cache_by_class(prev);
     }
+    if (rb_yield_values(2, INCLUDE_BETWEEN_VAL(prev), INCLUDE_BETWEEN_VAL(cur)) == Qtrue) {
+      RCLASS_SET_SUPER(prev, iclass);
+      RCLASS_SET_SUPER(iclass, cur);
+      return mod;
+    }
+  }
+  return Qnil;
+}
+
+static VALUE evilr_extend_between(VALUE self, VALUE mod) {
+  VALUE sc, iclass, klass, prev, cur;
+
+  evilr__check_immediate(self);
+  evilr__check_immediate(mod);
+  evilr__check_type(T_MODULE, mod);
+
+  sc = rb_singleton_class(self);
+  klass = rb_obj_class(self);
+  rb_extend_object(self, mod);
+  iclass = evilr__iclass_matching_before(sc, mod, klass);
+  if (iclass == NULL) {
+    rb_raise(rb_eArgError, "module already included in object's class");
+  }
+  evilr_unextend(self, mod);
+
+  for (prev = sc, cur = RCLASS_SUPER(sc); prev && prev != klass; prev = cur, cur = cur ? RCLASS_SUPER(cur) : cur) {
     if (rb_yield_values(2, INCLUDE_BETWEEN_VAL(prev), INCLUDE_BETWEEN_VAL(cur)) == Qtrue) {
       RCLASS_SET_SUPER(prev, iclass);
       RCLASS_SET_SUPER(iclass, cur);
@@ -425,6 +455,7 @@ void Init_evilr(void) {
 
   rb_define_method(rb_cObject, "class=", evilr_class_e, 1);
   rb_define_method(rb_cObject, "evilr_debug_print", evilr_debug_print, 0);
+  rb_define_method(rb_cObject, "extend_between", evilr_extend_between, 1);
   rb_define_method(rb_cObject, "flags", evilr_flags, 0);
   rb_define_method(rb_cObject, "detach_singleton_class", evilr_detach_singleton_class, 0);
   rb_define_method(rb_cObject, "dup_singleton_class", evilr_dup_singleton_class, -1);

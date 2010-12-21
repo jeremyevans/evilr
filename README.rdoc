@@ -26,6 +26,14 @@ instance variables, or method tables).
     class as a regular class.
   * evilr_debug_print : Print method ancestry chain to standard
     output.
+  * extend_between : Given a module and a block, calls the block
+    repeatedly with two arguments, each a module or class in the super 
+    chain.  The first time the block returns true, the module argument
+    given to the method is inserted between the given extended modules.
+    Starts with the object's singleton class and continues until
+    the object's class.  If the argument given already extends the
+    object, will remove it and reinsert it.  If the argument is
+    already included in the object's class, raises an exception.
   * pop_singleton_class : Remove closest singleton class from the
     object
   * push_singleton_class : Add a new singleton class to the object
