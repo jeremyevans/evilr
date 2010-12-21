@@ -835,3 +835,64 @@ describe "Module#include_between" do
     Module.new.include_between(Module.new){|p, c|}.should == nil
   end
 end
+
+describe "Object#unextend" do
+  after{GC.start}
+
+  specify "should raise an exception if called on immediate values" do
+    proc{nil.unextend Module.new}.should raise_error(TypeError)
+  end
+
+  specify "should raise an exception for immediate value arguments" do
+    proc{Object.new.unextend nil}.should raise_error(TypeError)
+  end
+
+  specify "should raise an exception for non-module arguments" do
+    proc{Object.new.unextend Object.new}.should raise_error(TypeError)
+    proc{Object.new.unextend Class.new}.should raise_error(TypeError)
+  end
+
+  specify "should unextend the given module from the object" do
+    m1 = Module.new{def a() [1] + (super rescue [0]) end}
+    m2 = Module.new{def a() [2] + (super rescue [0]) end}
+    m3 = Module.new{def a() [4] + (super rescue [0]) end}
+    m1.send :include, m2
+    m1.send :include, m3
+
+    o = Object.new
+    o.extend m1
+    o.a.should == [1, 4, 2, 0]
+    o.unextend m1
+    o.a.should == [4, 2, 0]
+    o.unextend m2
+    o.a.should == [4, 0]
+  end
+
+  specify "should not traverse above the object's class" do
+    m1 = Module.new{def a() [1] + (super rescue [0]) end}
+    m2 = Module.new{def a() [2] + (super rescue [0]) end}
+    m3 = Module.new{def a() [4] + (super rescue [0]) end}
+    m1.send :include, m2
+
+    c = Class.new{def a() [8] + (super rescue [0]) end; include m1}
+    o = c.new
+    o.extend m3
+    o.a.should == [4, 8, 1, 2, 0]
+    o.unextend m3
+    o.a.should == [8, 1, 2, 0]
+    o.unextend m2
+    o.a.should == [8, 1, 2, 0]
+  end
+
+  specify "should return module if module extended the object" do
+    m = Module.new
+    o = Object.new
+    o.extend(m)
+    o.unextend(m).should == m
+  end
+
+  specify "should return nil if module did not extend the object" do
+    Object.new.unextend(Module.new).should == nil
+  end
+end
+

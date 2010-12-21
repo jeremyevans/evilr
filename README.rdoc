@@ -38,6 +38,8 @@ instance variables, or method tables).
     singleton class, replacing any existing singleton class.
   * swap_singleton_class : Swap an object's singleton class with
     another object's singleton class.
+  * unextend : Remove a module that extends the object from the super
+    chain.
   * unfreeze : Unfreeze the object.
 * Kernel
   * set_safe_level : Allows you to lower ruby's $SAFE level.

@@ -232,6 +232,25 @@ static VALUE evilr_uninclude(VALUE klass, VALUE mod) {
   return Qnil;
 }
 
+static VALUE evilr_unextend(VALUE self, VALUE mod) {
+  VALUE prev, cur;
+
+  evilr__check_immediate(self);
+  evilr__check_immediate(mod);
+  evilr__check_type(T_MODULE, mod);
+
+  self = RBASIC_KLASS(self);
+  rb_clear_cache_by_class(self);
+  for (prev = self, cur = RCLASS_SUPER(self); cur && BUILTIN_TYPE(cur) != T_CLASS; prev = cur, cur = RCLASS_SUPER(cur)) {
+    if (BUILTIN_TYPE(cur) == T_ICLASS && RBASIC_KLASS(cur) == mod) {
+      RCLASS_SET_SUPER(prev, RCLASS_SUPER(cur));
+      return mod;
+    }
+  }
+
+  return Qnil;
+}
+
 #define INCLUDE_BETWEEN_VAL(x) (x) ? (BUILTIN_TYPE(x) == T_ICLASS ? RBASIC_KLASS(x) : (x)) : Qnil
 static VALUE evilr_include_between(VALUE klass, VALUE mod) {
   VALUE iclass, prev, cur;
@@ -415,6 +434,7 @@ void Init_evilr(void) {
   rb_define_method(rb_cObject, "remove_singleton_classes", evilr_remove_singleton_classes, 0);
   rb_define_method(rb_cObject, "set_singleton_class", evilr_set_singleton_class, 1);
   rb_define_method(rb_cObject, "swap_singleton_class", evilr_swap_singleton_class, 1);
+  rb_define_method(rb_cObject, "unextend", evilr_unextend, 1);
   rb_define_method(rb_cObject, "unfreeze", evilr_unfreeze, 0);
 
   rb_define_method(rb_mKernel, "set_safe_level", evilr_set_safe_level, 1);
