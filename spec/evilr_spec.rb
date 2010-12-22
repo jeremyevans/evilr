@@ -4,6 +4,19 @@ require 'evilr'
 describe "" do
 after{GC.start} # GC after spec to make sure nothing broke
 
+describe "UnboundMethod.force_bind" do
+  specify "should make the method bindable to another object even if the class differs" do
+    c = Class.new{def a() self.class end}
+    um = c.instance_method(:a)
+    c2 = Class.new
+    o = c2.new
+    proc{um.bind(o)}.should raise_error(TypeError)
+    m = um.force_bind(o)
+    m.should be_a_kind_of(Method)
+    m.call.should == c2
+  end
+end
+
 describe "Object#class=" do
   before do
     @o = Class.new.new

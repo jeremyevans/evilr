@@ -73,6 +73,9 @@ instance variables, or method tables).
     return the related instance.
   * superclass= : Modify the superclass of the receiver.
   * to_module : Return a copy of the class as a module.
+* UnboundMethod
+  * force_bind : Bind the method to the object even if it is a different
+    class than the method.
 
 == Good bugs
 

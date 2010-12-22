@@ -12,9 +12,12 @@
 #define SAFE_LEVEL_MAX 4
 #endif
 
-#ifndef RUBY19
-extern int ruby_safe_level;
-#endif
+/* Partial struct definition == evil */
+struct METHOD {
+    VALUE recv;
+    VALUE rclass;
+    ID id;
+};
 
 #define RBASIC_SET_KLASS(o, c) (RBASIC(o)->klass = c)
 #define RBASIC_KLASS(o) (RBASIC(o)->klass)
@@ -27,6 +30,7 @@ extern int ruby_safe_level;
 #else
 #define RCLASS_SET_SUPER(o, c) (RCLASS(o)->super = c)
 #define ROBJECT_IV_INDEX_TBL(o) (ROBJECT(o)->iv_tbl)
+extern int ruby_safe_level;
 #endif
 
 ID evilr__attached;
@@ -487,6 +491,18 @@ static VALUE evilr_inherit(int argc, VALUE* argv, VALUE klass) {
   return klass;
 }
 
+static VALUE evilr_force_bind(VALUE self, VALUE obj) {
+  struct METHOD *data;
+
+  evilr__check_immediate(obj);
+  self = rb_funcall(self, rb_intern("clone"), 0);
+  /* Data_Get_Struct seems to complain about types on 1.9,
+   * so skip the type check. */
+  data = (struct METHOD*)DATA_PTR(self);
+  data->rclass = CLASS_OF(obj);
+  return rb_funcall(self, rb_intern("bind"), 1, obj);
+}
+
 void Init_evilr(void) {
   evilr__attached = rb_intern("__attached__");
 
@@ -518,4 +534,6 @@ void Init_evilr(void) {
   rb_define_method(rb_cClass, "singleton_class_instance", evilr_singleton_class_instance, 0);
   rb_define_method(rb_cClass, "superclass=", evilr_superclass_e, 1);
   rb_define_method(rb_cClass, "to_module", evilr_to_module, 0);
+
+  rb_define_method(rb_cUnboundMethod, "force_bind", evilr_force_bind, 1);
 }
