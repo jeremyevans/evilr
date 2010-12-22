@@ -77,8 +77,8 @@ instance variables, or method tables).
   * force_bind : Bind the method to the object even if it is a different
     class than the method.
 * Proc
-  * self : Get the self of the proc (the default receiver of the proc's
-    methods)
+  * self : Get the default receiver of the proc's methods
+  * self= : Change the default receiver of the proc's methods
 
 == Good bugs
 

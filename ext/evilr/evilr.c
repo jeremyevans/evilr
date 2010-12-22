@@ -527,6 +527,13 @@ static VALUE evilr_self(VALUE self) {
   return data->self;
 }
 
+static VALUE evilr_self_e(VALUE self, VALUE obj) {
+  struct BLOCK *data;
+  data = (struct BLOCK*)DATA_PTR(self);
+  data->self = obj;
+  return data->self;
+}
+
 void Init_evilr(void) {
   evilr__attached = rb_intern("__attached__");
 
@@ -562,4 +569,5 @@ void Init_evilr(void) {
   rb_define_method(rb_cUnboundMethod, "force_bind", evilr_force_bind, 1);
 
   rb_define_method(rb_cProc, "self", evilr_self, 0);
+  rb_define_method(rb_cProc, "self=", evilr_self_e, 1);
 }

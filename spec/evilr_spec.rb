@@ -8,8 +8,24 @@ describe "Proc#self" do
   specify "should be the object the proc will call methods on by default" do
     c = Class.new
     c.class_eval{proc{}}.self.should == c
+    c.instance_eval{proc{}}.self.should == c
     o = c.new
     o.instance_eval{proc{}}.self.should == o
+  end
+end
+
+describe "Proc#self=" do
+  specify "should change the object the proc will call methods on by default" do
+    o1 = Object.new
+    o2 = Object.new
+    pr1 = o1.instance_eval{def a() 1 end; proc{a}}
+    pr2 = o2.instance_eval{def a() 2 end; proc{a}}
+    pr1.call.should == 1
+    pr2.call.should == 2
+    pr1.self = o2
+    pr2.self = o1
+    pr1.call.should == 2
+    pr2.call.should == 1
   end
 end
 
