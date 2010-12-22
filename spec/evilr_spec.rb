@@ -788,6 +788,11 @@ describe "Object#swap_instance_variables" do
     proc{Object.new.swap_instance_variables(nil)}.should raise_error(TypeError)
   end
 
+  specify "should raise an exception for swapping between modules and objects" do
+    proc{Class.new.swap_instance_variables(Object.new)}.should raise_error(TypeError)
+    proc{Object.new.swap_instance_variables(Class.new)}.should raise_error(TypeError)
+  end
+
   specify "should swap the instance's instance variables" do
     o1 = Object.new
     o2 = Object.new
@@ -796,6 +801,16 @@ describe "Object#swap_instance_variables" do
     o1.swap_instance_variables(o2)
     o2.instance_eval{@a.should == 1; @c.should == 3}
     o1.instance_eval{@a.should == 4; @b.should == 2}
+  end
+
+  specify "should allow swapping between modules" do
+    c = Class.new
+    m = Module.new
+    c.instance_eval{@a = 1; @c = 3}
+    m.instance_eval{@a = 4; @b = 2}
+    c.swap_instance_variables(m)
+    m.instance_eval{@a.should == 1; @c.should == 3}
+    c.instance_eval{@a.should == 4; @b.should == 2}
   end
 
   specify "should return self" do

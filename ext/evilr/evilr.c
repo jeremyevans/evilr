@@ -49,7 +49,7 @@ struct BLOCK {
 size_t OBJECT_SIZE = sizeof(VALUE) * 5;
 #else
 #define RCLASS_SET_SUPER(o, c) (RCLASS(o)->super = c)
-#define ROBJECT_IV_INDEX_TBL(o) (ROBJECT(o)->iv_tbl)
+#define ROBJECT_IVPTR(o) (ROBJECT(o)->iv_tbl)
 
 size_t OBJECT_SIZE = sizeof(VALUE) * 2 + sizeof(unsigned long) + sizeof(void *) * 2;
 extern int ruby_safe_level;
@@ -193,11 +193,11 @@ static VALUE evilr_debug_print(VALUE self) {
     case T_CLASS:
     case T_ICLASS:
     case T_MODULE:
-      printf("self %p klass %p flags 0x%lx iv_tbl %p m_tbl %p super %p\n", (void *)self, (void *)RBASIC_KLASS(self), RBASIC_FLAGS(self), (void *)ROBJECT_IV_INDEX_TBL(self), (void *)RCLASS_M_TBL(self), (void *)RCLASS_SUPER(self));
+      printf("self %p klass %p flags 0x%lx iv_tbl %p m_tbl %p super %p\n", (void *)self, (void *)RBASIC_KLASS(self), RBASIC_FLAGS(self), (void *)RCLASS_IV_TBL(self), (void *)RCLASS_M_TBL(self), (void *)RCLASS_SUPER(self));
       self = RCLASS_SUPER(self);
       break;
     default:
-      printf("self %p klass %p flags 0x%lx iv_tbl %p\n", (void *)self, (void *)RBASIC_KLASS(self), RBASIC_FLAGS(self), (void *)ROBJECT_IV_INDEX_TBL(self));
+      printf("self %p klass %p flags 0x%lx iv_tbl/ptr %p\n", (void *)self, (void *)RBASIC_KLASS(self), RBASIC_FLAGS(self), (void *)ROBJECT_IVPTR(self));
       self = RBASIC_KLASS(self);
       break;
   }
@@ -220,17 +220,33 @@ static VALUE evilr_swap(VALUE self, VALUE other) {
 }
 
 static VALUE evilr_swap_instance_variables(VALUE self, VALUE other) {
+  evilr__check_immediates(self, other);
+
+  if (((BUILTIN_TYPE(self) == T_MODULE || BUILTIN_TYPE(self) == T_CLASS) &&
+        BUILTIN_TYPE(other) != T_CLASS && BUILTIN_TYPE(other) != T_MODULE) ||
+      ((BUILTIN_TYPE(other) == T_MODULE || BUILTIN_TYPE(other) == T_CLASS) &&
+        BUILTIN_TYPE(self) != T_CLASS && BUILTIN_TYPE(self) != T_MODULE)) {
+    rb_raise(rb_eTypeError, "incompatible types used");
+  }
+
 #ifdef RUBY19
-  char tmp[OBJECT_SIZE];
-  evilr__check_immediates(self, other);
-  memcpy(tmp, &(ROBJECT(self)->as), sizeof(ROBJECT(tmp)->as));
-  memcpy(&(ROBJECT(self)->as), &(ROBJECT(other)->as), sizeof(ROBJECT(self)->as));
-  memcpy(&(ROBJECT(other)->as), tmp, sizeof(ROBJECT(other)->as));
+  if (BUILTIN_TYPE(self) == T_MODULE || BUILTIN_TYPE(self) == T_CLASS) {
+    struct st_table *tmp;
+    tmp = RCLASS_IV_TBL(self);
+    RCLASS(self)->ptr->iv_tbl = RCLASS_IV_TBL(other);
+    RCLASS(other)->ptr->iv_tbl = tmp;
+  } else {
+    char tmp[OBJECT_SIZE];
+    memcpy(tmp, &(ROBJECT(self)->as), sizeof(ROBJECT(tmp)->as));
+    memcpy(&(ROBJECT(self)->as), &(ROBJECT(other)->as), sizeof(ROBJECT(self)->as));
+    memcpy(&(ROBJECT(other)->as), tmp, sizeof(ROBJECT(other)->as));
+  }
 #else
+  /* RClass and RObject have iv_tbl at same position in the structure
+   * so no funny business is needed */
   struct st_table *tmp;
-  evilr__check_immediates(self, other);
-  tmp = ROBJECT_IV_INDEX_TBL(self);
-  ROBJECT(self)->iv_tbl = ROBJECT(other)->iv_tbl;
+  tmp = ROBJECT_IVPTR(self);
+  ROBJECT(self)->iv_tbl = ROBJECT_IVPTR(other);
   ROBJECT(other)->iv_tbl = tmp;
 #endif
   return self;
