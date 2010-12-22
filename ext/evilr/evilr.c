@@ -19,6 +19,24 @@ struct METHOD {
     ID id;
 };
 
+#ifdef RUBY19
+struct BLOCK {
+  VALUE self;
+  VALUE *lfp;
+  VALUE *dfp;
+  void *block_iseq;
+  VALUE proc;
+};
+#else
+/* More partial definition evil */
+struct BLOCK {
+  void *var;
+  void *body;
+  VALUE self;
+};
+#endif
+
+
 #define RBASIC_SET_KLASS(o, c) (RBASIC(o)->klass = c)
 #define RBASIC_KLASS(o) (RBASIC(o)->klass)
 #define RBASIC_FLAGS(o) (RBASIC(o)->flags)
@@ -171,11 +189,11 @@ static VALUE evilr_debug_print(VALUE self) {
     case T_CLASS:
     case T_ICLASS:
     case T_MODULE:
-      printf("self %p klass %p flags %ld iv_tbl %p m_tbl %p super %p\n", (void *)self, (void *)RBASIC_KLASS(self), RBASIC_FLAGS(self), (void *)ROBJECT_IV_INDEX_TBL(self), (void *)RCLASS_M_TBL(self), (void *)RCLASS_SUPER(self));
+      printf("self %p klass %p flags 0x%lx iv_tbl %p m_tbl %p super %p\n", (void *)self, (void *)RBASIC_KLASS(self), RBASIC_FLAGS(self), (void *)ROBJECT_IV_INDEX_TBL(self), (void *)RCLASS_M_TBL(self), (void *)RCLASS_SUPER(self));
       self = RCLASS_SUPER(self);
       break;
     default:
-      printf("self %p klass %p flags %ld iv_tbl %p\n", (void *)self, (void *)RBASIC_KLASS(self), RBASIC_FLAGS(self), (void *)ROBJECT_IV_INDEX_TBL(self));
+      printf("self %p klass %p flags 0x%lx iv_tbl %p\n", (void *)self, (void *)RBASIC_KLASS(self), RBASIC_FLAGS(self), (void *)ROBJECT_IV_INDEX_TBL(self));
       self = RBASIC_KLASS(self);
       break;
   }
@@ -503,6 +521,12 @@ static VALUE evilr_force_bind(VALUE self, VALUE obj) {
   return rb_funcall(self, rb_intern("bind"), 1, obj);
 }
 
+static VALUE evilr_self(VALUE self) {
+  struct BLOCK *data;
+  data = (struct BLOCK*)DATA_PTR(self);
+  return data->self;
+}
+
 void Init_evilr(void) {
   evilr__attached = rb_intern("__attached__");
 
@@ -536,4 +560,6 @@ void Init_evilr(void) {
   rb_define_method(rb_cClass, "to_module", evilr_to_module, 0);
 
   rb_define_method(rb_cUnboundMethod, "force_bind", evilr_force_bind, 1);
+
+  rb_define_method(rb_cProc, "self", evilr_self, 0);
 }

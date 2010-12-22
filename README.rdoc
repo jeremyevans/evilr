@@ -76,6 +76,9 @@ instance variables, or method tables).
 * UnboundMethod
   * force_bind : Bind the method to the object even if it is a different
     class than the method.
+* Proc
+  * self : Get the self of the proc (the default receiver of the proc's
+    methods)
 
 == Good bugs
 

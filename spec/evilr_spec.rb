@@ -4,7 +4,16 @@ require 'evilr'
 describe "" do
 after{GC.start} # GC after spec to make sure nothing broke
 
-describe "UnboundMethod.force_bind" do
+describe "Proc#self" do
+  specify "should be the object the proc will call methods on by default" do
+    c = Class.new
+    c.class_eval{proc{}}.self.should == c
+    o = c.new
+    o.instance_eval{proc{}}.self.should == o
+  end
+end
+
+describe "UnboundMethod#force_bind" do
   specify "should make the method bindable to another object even if the class differs" do
     c = Class.new{def a() self.class end}
     um = c.instance_method(:a)
