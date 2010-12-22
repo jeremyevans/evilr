@@ -519,6 +519,74 @@ describe "Object#set_singleton_class" do
   end
 end
 
+describe "Object#swap" do
+  specify "should raise an exception for immediate values" do
+    proc{nil.swap(Object.new)}.should raise_error(TypeError)
+    proc{Object.new.swap(nil)}.should raise_error(TypeError)
+  end
+
+  specify "should raise an exception for swapping a class with a non-class value" do
+    proc{Object.new.swap(Class.new)}.should raise_error(TypeError)
+    proc{Class.new.swap(Object.new)}.should raise_error(TypeError)
+    proc{Class.new.swap(Module.new)}.should raise_error(TypeError)
+  end
+
+  specify "should raise an exception for swapping a module with a non-module value" do
+    proc{Object.new.swap(Module.new)}.should raise_error(TypeError)
+    proc{Module.new.swap(Object.new)}.should raise_error(TypeError)
+    proc{Module.new.swap(Class.new)}.should raise_error(TypeError)
+  end
+
+  specify "should swap the objects' classes, singleton classes, and instance variables" do
+    c1 = Class.new{attr_accessor :b; def a() 1 end}
+    c2 = Class.new{attr_accessor :b; def a() 2 end}
+    o1 = c1.new
+    o2 = c2.new
+    o1.instance_eval{def a() 4 + super end}
+    o2.instance_eval{def a() 8 + super end}
+    o1.b = 3
+    o2.b = 4
+    o1.swap(o2)
+    o1.b.should == 4
+    o1.a.should == 10
+    o1.class.should == c2
+    o2.b.should == 3
+    o2.a.should == 5
+    o2.class.should == c1
+  end
+
+  specify "should work for classes" do
+    c1 = Class.new{def a() 1 end}
+    c2 = Class.new{def a() 2 end}
+    c1.instance_eval{@a = 16; def a() 4 end}
+    c2.instance_eval{@a = 32; def a() 8 end}
+    c1.swap(c2)
+    c1.a.should == 8
+    c2.a.should == 4
+    c1.instance_eval{@a.should == 32}
+    c2.instance_eval{@a.should == 16}
+    c1.new.a.should == 2
+    c2.new.a.should == 1
+  end
+
+  specify "should work for different types of objects" do
+    a = {}
+    b = []
+    a.swap(b)
+    a.should == []
+    b.should == {}
+  end
+
+  specify "should return self (the new self)" do
+    o = Object.new
+    i = o.object_id
+    no = o.swap(Class.new{def a() 1 end}.new)
+    no.should == o
+    no.object_id.should == i
+    no.a.should == 1
+  end
+end
+
 describe "Object#detach_singleton_class" do
   specify "should raise an exception for immediate values" do
     proc{nil.detach_singleton_class}.should raise_error(TypeError)

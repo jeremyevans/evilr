@@ -44,6 +44,8 @@ instance variables, or method tables).
     and extended modules.
   * set_singleton_class : Take a given class and make it the object's
     singleton class, replacing any existing singleton class.
+  * swap : Completely swap two objects (singleton class, class,
+    instance variables).
   * swap_singleton_class : Swap an object's singleton class with
     another object's singleton class.
   * swap_instance_variables: Swap two instance's instance variables.

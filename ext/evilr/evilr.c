@@ -45,9 +45,13 @@ struct BLOCK {
 
 #ifdef RUBY19
 #define RCLASS_SET_SUPER(o, c) (RCLASS(o)->ptr->super = c)
+
+size_t OBJECT_SIZE = sizeof(VALUE) * 5;
 #else
 #define RCLASS_SET_SUPER(o, c) (RCLASS(o)->super = c)
 #define ROBJECT_IV_INDEX_TBL(o) (ROBJECT(o)->iv_tbl)
+
+size_t OBJECT_SIZE = sizeof(VALUE) * 2 + sizeof(unsigned long) + sizeof(void *) * 2;
 extern int ruby_safe_level;
 #endif
 
@@ -200,13 +204,28 @@ static VALUE evilr_debug_print(VALUE self) {
   return evilr_debug_print(self);
 }
 
+
+static VALUE evilr_swap(VALUE self, VALUE other) {
+  char tmp[OBJECT_SIZE];
+  evilr__check_immediates(self, other);
+  if ((BUILTIN_TYPE(self) == T_MODULE || BUILTIN_TYPE(self) == T_CLASS ||
+       BUILTIN_TYPE(other) == T_MODULE || BUILTIN_TYPE(other) == T_CLASS) &&
+       BUILTIN_TYPE(self) != BUILTIN_TYPE(other)) {
+    rb_raise(rb_eTypeError, "incompatible types used");
+  }
+  memcpy(tmp, ROBJECT(self), OBJECT_SIZE);
+  memcpy(ROBJECT(self), ROBJECT(other), OBJECT_SIZE);
+  memcpy(ROBJECT(other), tmp, OBJECT_SIZE);
+  return self;
+}
+
 static VALUE evilr_swap_instance_variables(VALUE self, VALUE other) {
 #ifdef RUBY19
-  VALUE tmp = rb_newobj();
+  char tmp[OBJECT_SIZE];
   evilr__check_immediates(self, other);
-  memcpy(&(ROBJECT(tmp)->as), &(ROBJECT(self)->as), sizeof(ROBJECT(tmp)->as));
+  memcpy(tmp, &(ROBJECT(self)->as), sizeof(ROBJECT(tmp)->as));
   memcpy(&(ROBJECT(self)->as), &(ROBJECT(other)->as), sizeof(ROBJECT(self)->as));
-  memcpy(&(ROBJECT(other)->as), &(ROBJECT(tmp)->as), sizeof(ROBJECT(other)->as));
+  memcpy(&(ROBJECT(other)->as), tmp, sizeof(ROBJECT(other)->as));
 #else
   struct st_table *tmp;
   evilr__check_immediates(self, other);
@@ -548,6 +567,7 @@ void Init_evilr(void) {
   rb_define_method(rb_cObject, "remove_singleton_class", evilr_remove_singleton_class, 0);
   rb_define_method(rb_cObject, "remove_singleton_classes", evilr_remove_singleton_classes, 0);
   rb_define_method(rb_cObject, "set_singleton_class", evilr_set_singleton_class, 1);
+  rb_define_method(rb_cObject, "swap", evilr_swap, 1);
   rb_define_method(rb_cObject, "swap_instance_variables", evilr_swap_instance_variables, 1);
   rb_define_method(rb_cObject, "swap_singleton_class", evilr_swap_singleton_class, 1);
   rb_define_method(rb_cObject, "unextend", evilr_unextend, 1);
