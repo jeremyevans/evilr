@@ -793,6 +793,11 @@ describe "Object#swap_instance_variables" do
     proc{Object.new.swap_instance_variables(Class.new)}.should raise_error(TypeError)
   end
 
+  specify "should raise an exception for other types" do
+    proc{{}.swap_instance_variables([])}.should raise_error(TypeError)
+    proc{"".swap_instance_variables(//)}.should raise_error(TypeError)
+  end
+
   specify "should swap the instance's instance variables" do
     o1 = Object.new
     o2 = Object.new

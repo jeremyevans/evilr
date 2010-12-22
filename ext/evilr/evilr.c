@@ -222,11 +222,21 @@ static VALUE evilr_swap(VALUE self, VALUE other) {
 static VALUE evilr_swap_instance_variables(VALUE self, VALUE other) {
   evilr__check_immediates(self, other);
 
-  if (((BUILTIN_TYPE(self) == T_MODULE || BUILTIN_TYPE(self) == T_CLASS) &&
-        BUILTIN_TYPE(other) != T_CLASS && BUILTIN_TYPE(other) != T_MODULE) ||
-      ((BUILTIN_TYPE(other) == T_MODULE || BUILTIN_TYPE(other) == T_CLASS) &&
-        BUILTIN_TYPE(self) != T_CLASS && BUILTIN_TYPE(self) != T_MODULE)) {
-    rb_raise(rb_eTypeError, "incompatible types used");
+  switch(BUILTIN_TYPE(self)) {
+    case T_OBJECT:
+      if (BUILTIN_TYPE(other) != T_OBJECT) {
+        goto bad_types;
+      }
+      break;
+    case T_MODULE:
+    case T_CLASS:
+      if (BUILTIN_TYPE(other) != T_MODULE && BUILTIN_TYPE(other) != T_CLASS) {
+        goto bad_types;
+      }
+      break;
+    default:
+bad_types:
+      rb_raise(rb_eTypeError, "incompatible types used");
   }
 
 #ifdef RUBY19
