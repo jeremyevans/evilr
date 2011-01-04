@@ -11,6 +11,8 @@
 #include <st.h> 
 #endif
 
+/* ruby uses a magic number for this, arguably the only time
+ * it is more evil that evilr. */
 #ifndef SAFE_LEVEL_MAX
 #define SAFE_LEVEL_MAX 4
 #endif
@@ -59,11 +61,9 @@ struct BLOCK {
 
 #ifdef RUBY19
 #define RCLASS_SET_SUPER(o, c) (RCLASS(o)->ptr->super = c)
-
 #else
 #define RCLASS_SET_SUPER(o, c) (RCLASS(o)->super = c)
 #define ROBJECT_IVPTR(o) (ROBJECT(o)->iv_tbl)
-
 extern int ruby_safe_level;
 #endif
 
@@ -72,52 +72,70 @@ ID evilr__attached;
 ID evilr__bind;
 ID evilr__clone;
 
+/* Helper functions */
+
+/* Raise TypeError if an immediate value is given. */
 static void evilr__check_immediate(VALUE self) {
   if (SPECIAL_CONST_P(self)) {
     rb_raise(rb_eTypeError, "can't use immediate value");
   }
 }
 
+/* Raise TypeError if either self or other is an immediate value. */
 static void evilr__check_immediates(VALUE self, VALUE other) {
   evilr__check_immediate(self);
   evilr__check_immediate(other);
 }
 
+/* Raise TypeError if self doesn't have the given ruby internal type
+ * number (e.g. T_OBJECT). */
 static void evilr__check_type(unsigned int type, VALUE self) {
   if (BUILTIN_TYPE(self) != type) {
     rb_raise(rb_eTypeError, "incompatible type used");
   }
 }
 
+/* Return the ruby internal type number that instances of the
+ * given class use. */
 static unsigned int evilr__class_type(VALUE klass) {
   evilr__check_type(T_CLASS, klass);
   return BUILTIN_TYPE(rb_obj_alloc(klass));
 }
 
+/* Raise TypeError if instances of the given class don't have the
+ * given ruby internal type number. */
 static void evilr__check_class_type(unsigned int type, VALUE self) {
   if (evilr__class_type(self) != type) {
     rb_raise(rb_eTypeError, "incompatible type used");
   }
 }
 
+/* Raise TypeError if the given value has the ruby internal type number T_DATA. */
 static void evilr__check_data_type(VALUE self) {
   if (BUILTIN_TYPE(self) == T_DATA) {
     rb_raise(rb_eTypeError, "incompatible type used");
   }
 }
 
+/* Return the next class in the super chain, skipping any iclasses (included modules).
+ * Returns NULL if this is the last class in the super chain. */
 static VALUE evilr__next_class(VALUE klass) {
   VALUE c;
   for (c = RCLASS_SUPER(klass); c && BUILTIN_TYPE(c) != T_CLASS; c = RCLASS_SUPER(c)); /* empty */
   return c;
 }
 
+/* If the given class includes no modules, return it.  Otherwise, return the last iclass
+ * before the next class in the super chain. */
 static VALUE evilr__iclass_before_next_class(VALUE klass) {
   VALUE c, i = NULL;
   for (c = RCLASS_SUPER(klass); c && BUILTIN_TYPE(c) != T_CLASS; i = c, c = RCLASS_SUPER(c)); /* empty */
   return i == NULL ? klass : i;
 }
 
+/* Walk the super chain from klass until either before or an iclass for mod is encountered.  If
+ * before is encountered first, return NULL.  If an iclass for mod is encountered first, return
+ * the iclass. */
 static VALUE evilr__iclass_matching_before(VALUE klass, VALUE mod, VALUE before) {
   VALUE c;
   for (c = RCLASS_SUPER(klass); c && c != before; c = RCLASS_SUPER(c)) {
@@ -128,10 +146,16 @@ static VALUE evilr__iclass_matching_before(VALUE klass, VALUE mod, VALUE before)
   return NULL;
 }
 
+/* If there is an iclass for mod anywhere in the super chain of klass, return the iclass.
+ * Otherwise, return NULL. */
 static VALUE evilr__iclass_matching(VALUE klass, VALUE mod) {
   return evilr__iclass_matching_before(klass, mod, NULL);
 }
 
+/* If self has a singleton class, set the superclass of the
+ * singleton class to the given klass, keeping all modules
+ * that are included in the singleton class.  Otherwise, set the
+ * object's klass to the given klass. */
 void evilr__reparent_singleton_class(VALUE self, VALUE klass) {
   VALUE self_klass = RBASIC_KLASS(self);
 
@@ -143,16 +167,25 @@ void evilr__reparent_singleton_class(VALUE self, VALUE klass) {
   }
 }
 
+/* Set the superclass of self to the given klass, keeping all
+ * modules that are included in the class. */
 void evilr__reparent_class(VALUE self, VALUE klass) {
   RCLASS_SET_SUPER(evilr__iclass_before_next_class(self), klass);
   rb_clear_cache_by_class(self);
 }
 
+/* Raise TypeError if self is an immediate value or if klass is
+ * not a Class. */
 void evilr__check_obj_and_class(VALUE self, VALUE klass) {
   evilr__check_immediates(self, klass);
   evilr__check_type(T_CLASS, klass);
 }
 
+/* If no arguments are given, return Object.  If an argument is
+ * given and it is a class object whose instances use the ruby
+ * internal class number T_OBJECT, return that class.  If an argument
+ * is given and it isn't a class or it's instances don't use T_OBJECT,
+ * return a TypeError.  Otherwise, return an ArgumentError. */
 static VALUE evilr__optional_class(int argc, VALUE *argv) {
   VALUE klass;
 
@@ -171,12 +204,16 @@ static VALUE evilr__optional_class(int argc, VALUE *argv) {
   return klass;
 }
 
+/* Make the given klass the singleton class of self. */
 void evilr__make_singleton(VALUE self, VALUE klass) {
   FL_SET(klass, FL_SINGLETON);
   RBASIC_SET_KLASS(self, klass);
   rb_singleton_class_attached(klass, self);
 }
 
+/* Check that super is a Class object whose instances use the same internal
+ * type number as instances of klass, and that the instances don't use
+ * type number T_DATA. */
 void evilr__check_compatible_classes(VALUE klass, VALUE super) {
   evilr__check_immediate(super);
   evilr__check_type(T_CLASS, super);
@@ -184,6 +221,10 @@ void evilr__check_compatible_classes(VALUE klass, VALUE super) {
   evilr__check_data_type(rb_obj_alloc(klass));
 }
 
+/* Walk the super chain starting with the given iclass and include
+ * the modules related to each iclass into the mod such that the
+ * order of the initial iclass super chain and mod's super chain are
+ * the same. */
 void evilr__include_iclasses(VALUE mod, VALUE iclass) {
   if (iclass && BUILTIN_TYPE(iclass) == T_ICLASS) {
     evilr__include_iclasses(mod, RCLASS_SUPER(iclass));
@@ -192,7 +233,16 @@ void evilr__include_iclasses(VALUE mod, VALUE iclass) {
   rb_clear_cache_by_class(mod);
 }
 
+/* Ruby methods */
 
+/* call-seq:
+ *   class=(klass) -> Object
+ *
+ * Modifies the receiver's class to be +klass+.  The receiver's current class
+ * and any singleton class (and any modules that extend the object) are
+ * ignored.  If the receiver is an immediate or instances of +klass+ don't use the
+ * same internal type as the receiver, a +TypeError+ is raised.
+ */
 static VALUE evilr_class_e(VALUE self, VALUE klass) {
   evilr__check_immediate(self);
   evilr__check_type(evilr__class_type(klass), self);
@@ -202,6 +252,14 @@ static VALUE evilr_class_e(VALUE self, VALUE klass) {
   return self;
 }
 
+/* call-seq:
+ *   evilr_debug_print -> nil
+ *
+ * Prints to stdout the receiver and all entries in the receiver's klass's super chain,
+ * using the pointers of the current entry, it's klass, iv_tbl, m_tbl, and super entry,
+ * as well as the entry's flags.  If Class or Module is given, uses their
+ * super chain, not the super chain of their klass. If the receiver is an immediate value,
+ * a +TypeError+ is raised. */
 static VALUE evilr_debug_print(VALUE self) {
   if (self == NULL) {
     return Qnil;
@@ -223,6 +281,22 @@ static VALUE evilr_debug_print(VALUE self) {
 }
 
 
+/* call-seq:
+ *   swap(other) -> self
+ * 
+ * Swap the contents of the receiver with +other+:
+ *
+ *   a = []
+ *   b = {}
+ *   a.swap(b) # => {}
+ *   a # => {}
+ *   b # => []
+ *
+ * You cannot swap a Class or Module except with another
+ * Class or Module, and you can only swap a Class with a Class and
+ * a Module with a Module (no swapping a Class with Module), and you
+ * cannot swap immediate values.  If an invalid swap attempt is
+ * detected, a  +TypeError+ is raised.*/
 static VALUE evilr_swap(VALUE self, VALUE other) {
   char tmp[OBJECT_SIZE];
   evilr__check_immediates(self, other);
@@ -237,6 +311,15 @@ static VALUE evilr_swap(VALUE self, VALUE other) {
   return self;
 }
 
+/* call-seq:
+ *   swap_instance_variables(other) -> self
+ * 
+ * Swaps only the instance variables of the receiver and +other+.
+ * You can only swap the instance variables between two objects that
+ * use the internal type number T_OBJECT, or between Classes and Modules.
+ * You cannot swap instance variables of immediate values, since they
+ * do not have instance variables. Invalid swap attempts will raise
+ * +TypeError+. */
 static VALUE evilr_swap_instance_variables(VALUE self, VALUE other) {
 #ifndef RUBY19
   struct st_table *tmp;
@@ -282,6 +365,11 @@ bad_types:
   return self;
 }
 
+/* call-seq:
+ *   swap_method_tables(other) -> self
+ * 
+ * Swap the method table of the receiver with the method table of the given
+ * class or module.  If +other+ is not a class or module, raise a +TypeError+. */
 static VALUE evilr_swap_method_tables(VALUE self, VALUE other) {
   struct st_table *tmp;
 
@@ -298,6 +386,15 @@ static VALUE evilr_swap_method_tables(VALUE self, VALUE other) {
   return self;
 }
 
+/* call-seq:
+ *   swap_singleton_class(other) -> self
+ * 
+ * Swap the singleton classes of the receiver and +other+.  If either
+ * the receiver or +other+ is an immediate, a +TypeError+ is raised.
+ * If either object does not have a singleton class, an empty singleton
+ * class is created for it before swapping. Any modules that extend
+ * either object are swapped as well.
+ * */
 static VALUE evilr_swap_singleton_class(VALUE self, VALUE other) {
   VALUE tmp;
 
@@ -322,6 +419,11 @@ static VALUE evilr_swap_singleton_class(VALUE self, VALUE other) {
   return self;
 }
 
+/* call-seq:
+ *   unfreeze -> self
+ * 
+ * Unfreezes the given object.  Will raise a +SecurityError+ if
+ * <tt>$SAFE</tt> > 0.  Has no effect if the object is not yet frozen. */
 static VALUE evilr_unfreeze(VALUE self) {
   if (rb_safe_level() > 0) {
     rb_raise(rb_eSecurityError, "can't unfreeze objects when $SAFE > 0");
@@ -330,6 +432,13 @@ static VALUE evilr_unfreeze(VALUE self) {
   return self;
 }
 
+/* call-seq:
+ *   set_safe_level=(int) -> int
+ * 
+ * Sets the <tt>$SAFE</tt> level to the given integer.  If the number is
+ * greater than 4, sets it to 4.  Allows lowering the <tt>$SAFE</tt> level
+ * by passing an integer lower than the current level. Returns the value
+ * passed in. */
 static VALUE evilr_set_safe_level(VALUE self, VALUE safe) {
   int s = NUM2INT(safe);
   if (s > SAFE_LEVEL_MAX) {
@@ -343,6 +452,14 @@ static VALUE evilr_set_safe_level(VALUE self, VALUE safe) {
   return safe;
 }
 
+/* call-seq:
+ *   uninclude(mod) -> mod || nil
+ *
+ * Unincludes the given module +mod+ from the receiver or any of the receiver's
+ * ancestors.  Walks the super chain of the receiver, and if an iclass for +mod+ is
+ * encountered, the super chain is modified to skip that iclass.  Returns +mod+ if
+ * an iclass for mod was present in the super chain, and +nil+ otherwise. If +mod+ is
+ * not a Module, a +TypeError+ is raised. */
 static VALUE evilr_uninclude(VALUE klass, VALUE mod) {
   VALUE cur, prev;
 
@@ -362,6 +479,13 @@ static VALUE evilr_uninclude(VALUE klass, VALUE mod) {
   return Qnil;
 }
 
+/* call-seq:
+ *   unextend(mod) -> mod || nil
+ *
+ * Unextends the given module +mod+ from the receiver.  If the receiver's class includes the
+ * module, does not uninclude it, so this should not affect any other objects besides the
+ * receiver.  If +mod+ already extended the object, returns +mod+, otherwise returns +nil+.
+ * Raises +TypeError+ if +mod+ is not a Module or if the receiver is an immediate. */
 static VALUE evilr_unextend(VALUE self, VALUE mod) {
   VALUE prev, cur;
 
@@ -381,6 +505,17 @@ static VALUE evilr_unextend(VALUE self, VALUE mod) {
 }
 
 #define INCLUDE_BETWEEN_VAL(x) (x) ? (BUILTIN_TYPE(x) == T_ICLASS ? RBASIC_KLASS(x) : (x)) : Qnil
+/* call-seq:
+ *   include_between(mod){|p, c| } -> mod || nil
+ *
+ * Walks the receiver's super chain, yielding the previous and current entries in
+ * the super chain at every step.  The first time the block returns +true+, +mod+ is
+ * inserted into the super chain between the two values, and the method returns
+ * immediately.  Raises +TypeError+ if +mod+ is not a Module.
+ * If the block ever returns +true+, the return value is +mod+.  If
+ * the block never returns +true+, the return value is +nil+.  On the first block call,
+ * the first block argument is the receiver, and on the last block call, the last block
+ * argument is +nil+. */
 static VALUE evilr_include_between(VALUE klass, VALUE mod) {
   VALUE iclass, prev, cur;
 
@@ -406,6 +541,18 @@ static VALUE evilr_include_between(VALUE klass, VALUE mod) {
   return Qnil;
 }
 
+/* call-seq:
+ *   extend_between(mod){|p, c| } -> mod || nil
+ *
+ * Walks the receiver's singleton class's super chain until it reaches the receiver's
+ * class, yielding the previous and current entries in the super chain at every step.
+ * The first time the block returns +true+, +mod+ is inserted into the super chain
+ * between the two values and the method returns immediately.  Raises +TypeError+ if
+ * +mod+ is not a Module or if the receiver is an immediate.
+ * If the block ever returns +true+, the return value is
+ * +mod+.  If the block never returns +true+, the return value is +nil+.  On the first block call,
+ * the first block argument is the receiver's singleton class, and on the last block call,
+ * the last block argument is the receiver's class. */
 static VALUE evilr_extend_between(VALUE self, VALUE mod) {
   VALUE sc, iclass, klass, prev, cur;
 
@@ -431,6 +578,14 @@ static VALUE evilr_extend_between(VALUE self, VALUE mod) {
   return Qnil;
 }
 
+/* call-seq:
+ *   detach_singleton -> self
+ *
+ * If the receiver is a singleton class, it is transformed into a
+ * regular class and it is detached from the instance.  Note that
+ * this means it becomes the class of the object to which it was previous
+ * attached.  If the receiver is not a singleton class, has no effect.
+ * Returns the receiver. */
 static VALUE evilr_detach_singleton(VALUE klass) {
   if (IS_SINGLETON_CLASS(klass)) {
     FL_UNSET(klass, FL_SINGLETON);
@@ -441,11 +596,26 @@ static VALUE evilr_detach_singleton(VALUE klass) {
   return klass;
 }
 
+/* call-seq:
+ *   detach_singleton_class -> Class
+ * 
+ * If the receiver has a singleton class, it is detached from the
+ * receiver and becomes the receiver's class.  If the receiver is
+ * an immediate, a +TypeError+ is raised. Returns the (possibly new) class
+ * of the receiver. */
 static VALUE evilr_detach_singleton_class(VALUE self) {
   evilr__check_immediate(self);
   return evilr_detach_singleton(RBASIC_KLASS(self));
 }
 
+/* call-seq:
+ *   dup_singleton_class(klass=Object) -> Class || nil
+ * 
+ * If the receiver has a singleton class, a copy of the class is returned,
+ * and the superclass of that class is set to the given +klass+.  Any
+ * modules that extend the object become modules included in the returned class.
+ * If the receiver does not have a singleton class, +nil+ is returned and no
+ * changes are made.  If the receiver is an immediate, a +TypeError+ is raised. */
 static VALUE evilr_dup_singleton_class(int argc, VALUE *argv, VALUE self) {
   VALUE klass;
   evilr__check_immediate(self);
@@ -460,6 +630,13 @@ static VALUE evilr_dup_singleton_class(int argc, VALUE *argv, VALUE self) {
   return self;
 }
 
+/* call-seq:
+ *   push_singleton_class(klass) -> klass
+ * 
+ * Makes the given class the closest singleton class of the receiver, without changing any
+ * existing singleton class relationships.  Designed to be used with +pop_singleton_class+
+ * to implement a method table stack on an object.  If the receiver is an immediate or
+ * +klass+ is not a class, raises +TypeError+. */
 static VALUE evilr_push_singleton_class(VALUE self, VALUE klass) {
   evilr__check_obj_and_class(self, klass);
   evilr__reparent_class(evilr__iclass_before_next_class(klass), RBASIC_KLASS(self));
@@ -467,6 +644,14 @@ static VALUE evilr_push_singleton_class(VALUE self, VALUE klass) {
   return klass;
 }
 
+/* call-seq:
+ *   pop_singleton_class -> Class || nil
+ * 
+ * Removes the closest singleton class from the receiver and returns it.
+ * If the receiver does not have a singleton class, does nothing and returns +nil+.
+ * Designed to be used with +push_singleton_class+
+ * to implement a method table stack on an object.  If the receiver is an immediate, 
+ * raises +TypeError+. */
 static VALUE evilr_pop_singleton_class(VALUE self) {
   VALUE klass;
 
@@ -481,12 +666,27 @@ static VALUE evilr_pop_singleton_class(VALUE self) {
   return klass;
 }
 
+/* call-seq:
+ *   remove_singleton_classes -> nil
+ * 
+ * Removes all singleton classes from the receiver.  Designed to be used with
+ * +push_singleton_class+ and +pop_singleton_class+ to implement a method table
+ * stack on an object, this clears the stack.  If the receiver is an immediate,
+ * raises +TypeError+. */
 static VALUE evilr_remove_singleton_classes(VALUE self) {
   evilr__check_immediate(self);
   RBASIC_SET_KLASS(self, rb_obj_class(self));  
   return Qnil;
 }
 
+/* call-seq:
+ *   set_singleton_class(klass) -> klass
+ * 
+ * Makes the given +klass+ the singleton class of the receiver,
+ * ignoring any existing singleton class and modules extending the receiver.
+ * Modules already included in +klass+ become modules that extend the receiver.
+ * If the receiver is an immediate or +klass+ is not a Class,
+ * raises +TypeError+. */
 static VALUE evilr_set_singleton_class(VALUE self, VALUE klass) {
   evilr__check_obj_and_class(self, klass);
   RCLASS_SET_SUPER(evilr__iclass_before_next_class(klass), rb_obj_class(self));
@@ -495,6 +695,13 @@ static VALUE evilr_set_singleton_class(VALUE self, VALUE klass) {
   return klass;
 }
 
+/* call-seq:
+ *   remove_singleton_class -> klass || nil
+ * 
+ * Removes the singleton class of the receiver, detaching it from the
+ * receiver and making it a regular class.  If the receiver does not
+ * currently have a singleton class, returns +nil+.  If the receiver is an
+ * immediate, raises +TypeError+. */
 static VALUE evilr_remove_singleton_class(VALUE self) {
   VALUE klass;
   evilr__check_immediate(self);
@@ -508,6 +715,12 @@ static VALUE evilr_remove_singleton_class(VALUE self) {
   return klass;
 }
 
+/* call-seq:
+ *   singleton_class_instance -> Object || nil
+ * 
+ * Returns the object attached to the singleton class.
+ * If the class does not have an object attached to it (possibly because
+ * it isn't a singleton class), returns +nil+. */
 static VALUE evilr_singleton_class_instance(VALUE klass) {
   VALUE obj;
   if(RCLASS_IV_TBL(klass) && st_lookup(RCLASS_IV_TBL(klass), evilr__attached, &obj)) {
@@ -516,6 +729,11 @@ static VALUE evilr_singleton_class_instance(VALUE klass) {
   return Qnil;
 }
 
+/* call-seq:
+ *   to_module -> Module
+ * 
+ * Makes a copy of the class, converts the copy to a module, and returns it. The
+ * returned module can be included in other classes. */
 static VALUE evilr_to_module(VALUE klass) {
   VALUE mod, iclass;
 
@@ -540,6 +758,13 @@ static VALUE evilr_to_module(VALUE klass) {
   return mod;
 }
 
+/* call-seq:
+ *   to_class(klass=Object) -> Class
+ * 
+ * Makes a copy of the module, converts the copy to a class, and returns it. The
+ * returned class can then have instances created from it. The +klass+ argument
+ * sets the superclass of the returned class.  If +klass+ is not a Class,
+ * raises +TypeError+. */
 static VALUE evilr_to_class(int argc, VALUE *argv, VALUE self) {
   VALUE klass = evilr__optional_class(argc, argv);
 
@@ -551,11 +776,24 @@ static VALUE evilr_to_class(int argc, VALUE *argv, VALUE self) {
   return self;
 }
 
+/* call-seq:
+ *   flags -> Integer
+ * 
+ * Returns the internal flags value of the receiver as an +Integer+.  Raises +TypeError+ 
+ * if the receiver is an immediate. */
 static VALUE evilr_flags(VALUE self) {
   evilr__check_immediate(self);
   return UINT2NUM(RBASIC_FLAGS(self));
 }
 
+/* call-seq:
+ *   superclass=(klass) -> klass
+ * 
+ * Modifies the superclass of the current class to be the given
+ * class.  Any modules included in the receiver remain included.
+ * Raises +TypeError+ if klass is not a Class or if the receiver
+ * and class are not compatible (where their instances use
+ * different internal types). */
 static VALUE evilr_superclass_e(VALUE klass, VALUE super) {
   VALUE iclass;
   evilr__check_compatible_classes(klass, super);
@@ -565,6 +803,12 @@ static VALUE evilr_superclass_e(VALUE klass, VALUE super) {
   return super;
 }
 
+/* call-seq:
+ *   inherit(*classes) -> self
+ * 
+ * Make copies of all given +classes+ as modules, and includes
+ * those modules in the receiver. Raises +TypeError+ if any of the
+ * +classes+ is not a Class or is not compatible with the receiver. */
 static VALUE evilr_inherit(int argc, VALUE* argv, VALUE klass) {
   int i;
 
@@ -576,6 +820,11 @@ static VALUE evilr_inherit(int argc, VALUE* argv, VALUE klass) {
   return klass;
 }
 
+/* call-seq:
+ *   force_bind(object) -> Method
+ * 
+ * Returns a +Method+ object bound to the given object.  Doesn't
+ * check that the method is compatible with the object, unlike +bind+. */
 static VALUE evilr_force_bind(VALUE self, VALUE obj) {
   struct METHOD *data;
 
@@ -588,12 +837,31 @@ static VALUE evilr_force_bind(VALUE self, VALUE obj) {
   return rb_funcall(self, evilr__bind, 1, obj);
 }
 
+/* call-seq:
+ *   self -> Object
+ * 
+ * Returns the self of the receiver, which is the default context
+ * used in evaluating the receiver. */
 static VALUE evilr_self(VALUE self) {
   struct BLOCK *data;
   data = (struct BLOCK*)DATA_PTR(self);
   return data->self;
 }
 
+/* call-seq:
+ *   self=(object) -> object
+ * 
+ * Sets the self of the receiver to the given object, modifying the  
+ * used in evaluating the receiver. Example:
+ *
+ *   p = Proc.new{self[:a]}
+ *   h1 = {:a=>1}
+ *   h2 = {:a=>2}
+ *   p.self = h1
+ *   p.call # => 1
+ *   p.self = h2
+ *   p.call # => 2
+ * */
 static VALUE evilr_self_e(VALUE self, VALUE obj) {
   struct BLOCK *data;
   data = (struct BLOCK*)DATA_PTR(self);
@@ -601,22 +869,43 @@ static VALUE evilr_self_e(VALUE self, VALUE obj) {
   return data->self;
 }
 
+/* call-seq:
+ *   segfault
+ * 
+ * Dereferences the NULL pointer, which should cause SIGSEGV 
+ * (a segmentation fault), and the death of the process, though
+ * it could possibly be rescued. */
 static VALUE evilr_segfault(VALUE self) {
   self = *(char *)NULL;
   return self;
 }
 
+/* call-seq:
+ *   seppuku
+ * 
+ * Kills the current process with SIGKILL, which should
+ * terminate the process immediately without any recovery possible. */
 static VALUE evilr_seppuku(VALUE self) {
   kill(getpid(), SIGKILL);
   return self;
 }
 
+/* call-seq:
+ *   allocate -> object
+ * 
+ * Allocate memory for the new instance.  Basically a copy of
+ * +rb_class_allocate_instance+. */
 static VALUE evilr_empty_alloc(VALUE klass) {
   NEWOBJ(obj, struct RObject);
   OBJSETUP(obj, klass, T_OBJECT);
   return (VALUE)obj;
 }
 
+/* call-seq:
+ *   new(*args)-> object
+ * 
+ * Allocates memory for the instance and then calls initialize
+ * on the object. */
 static VALUE evilr_empty_new(int argc, VALUE* argv, VALUE klass) {
   VALUE obj;
   obj = evilr_empty_alloc(klass);
@@ -624,14 +913,34 @@ static VALUE evilr_empty_new(int argc, VALUE* argv, VALUE klass) {
   return obj;
 }
 
+/* call-seq:
+ *   superclass -> Class || nil
+ * 
+ * Returns the superclass of the class, or nil if current class is
+ * +Empty+. Basically a copy of the standard superclass method,
+ * without some checking. */
 static VALUE evilr_empty_superclass(VALUE klass) {
   return klass == empty ? Qnil : evilr__next_class(klass);
 }
 
+/* call-seq:
+ *   initialize -> self
+ * 
+ * Returns the receiver. */
 static VALUE evilr_empty_initialize(VALUE self) {
   return self;
 }
 
+/* Empty is an almost completely empty class, even more basic than
+ * BasicObject.  It has no parent class, and only implements
+ * +allocate+, +new+, +initialize+, and +superclass+.  All other
+ * behavior must be added by the user.  Note that if you want to
+ * call a method defined in Object, Kernel, or BasicObject that
+ * isn't defined in Empty, you can use <tt>UndefinedMethod#force_bind</tt>,
+ * to do so:
+ *
+ *   Object.instance_method(:puts).force_bind(Empty.new).call()
+ */
 void Init_evilr(void) {
   empty = rb_define_class("Empty", rb_cObject);
   rb_define_alloc_func(empty, evilr_empty_alloc);
