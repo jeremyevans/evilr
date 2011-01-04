@@ -83,6 +83,9 @@ instance variables, or method tables).
 * Proc
   * self : Get the default receiver of the proc's methods
   * self= : Change the default receiver of the proc's methods
+* Empty
+  * A class with no superclass, only allocate, new, and initialize
+    defined.  More basic than even BasicObject.
 
 == Good bugs
 

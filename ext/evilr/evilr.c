@@ -58,6 +58,7 @@ size_t OBJECT_SIZE = sizeof(VALUE) * 2 + sizeof(unsigned long) + sizeof(void *) 
 extern int ruby_safe_level;
 #endif
 
+VALUE empty;
 ID evilr__attached;
 
 static void evilr__check_immediate(VALUE self) {
@@ -592,7 +593,35 @@ static VALUE evilr_seppuku(VALUE self) {
   return self;
 }
 
+static VALUE evilr_empty_alloc(VALUE klass) {
+  NEWOBJ(obj, struct RObject);
+  OBJSETUP(obj, klass, T_OBJECT);
+  return (VALUE)obj;
+}
+
+static VALUE evilr_empty_new(int argc, VALUE* argv, VALUE klass) {
+  VALUE obj;
+  obj = evilr_empty_alloc(klass);
+  rb_obj_call_init(obj, argc, argv);
+  return obj;
+}
+
+static VALUE evilr_empty_superclass(VALUE klass) {
+  return klass == empty ? Qnil : evilr__next_class(klass);
+}
+
+static VALUE evilr_empty_initialize(VALUE self) {
+  return self;
+}
+
 void Init_evilr(void) {
+  empty = rb_define_class("Empty", rb_cObject);
+  rb_define_alloc_func(empty, evilr_empty_alloc);
+  rb_define_singleton_method(empty, "new", evilr_empty_new, -1);
+  rb_define_singleton_method(empty, "superclass", evilr_empty_superclass, 0);
+  rb_define_method(empty, "initialize", evilr_empty_initialize, 0);
+  RCLASS_SET_SUPER(empty, NULL);
+
   evilr__attached = rb_intern("__attached__");
 
   rb_define_method(rb_cObject, "class=", evilr_class_e, 1);

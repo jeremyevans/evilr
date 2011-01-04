@@ -1127,4 +1127,31 @@ describe "Object#extend_between" do
     i.should == 1
   end
 end
+
+describe "Empty" do
+  specify "should be able to be instantiated" do
+    proc{Empty.new}.should_not raise_error
+  end
+
+  specify "should raise an error if instantiated with arguments" do
+    proc{Empty.new 1}.should raise_error(ArgumentError)
+  end
+
+  specify "should not raise an error if subclass instantiated with arguments and supports those arguments" do
+    c = Class.new(Empty){def initialize(*) end}
+    proc{c.new 1, 2, 3}.should_not raise_error
+  end
+
+  specify "should have nil superclass" do
+    Empty.superclass.should == nil
+  end
+
+  specify "subclasses should have correct superclass" do
+    Class.new(Empty).superclass.should == Empty
+  end
+
+  specify "should have instances that aren't objects" do
+    Object.instance_method(:is_a?).force_bind(Empty.new).call(Object).should be_false
+  end
+end
 end
