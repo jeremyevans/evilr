@@ -125,6 +125,7 @@ void evilr__reparent_singleton_class(VALUE self, VALUE klass) {
 
   if (IS_SINGLETON_CLASS(self_klass)) {
     RCLASS_SET_SUPER(evilr__iclass_before_next_class(self_klass), klass);
+    rb_clear_cache_by_class(self_klass);
   } else {
     RBASIC_SET_KLASS(self, klass);
   }
@@ -132,6 +133,7 @@ void evilr__reparent_singleton_class(VALUE self, VALUE klass) {
 
 void evilr__reparent_class(VALUE self, VALUE klass) {
   RCLASS_SET_SUPER(evilr__iclass_before_next_class(self), klass);
+  rb_clear_cache_by_class(self);
 }
 
 void evilr__check_obj_and_class(VALUE self, VALUE klass) {
@@ -175,6 +177,7 @@ void evilr__include_iclasses(VALUE mod, VALUE iclass) {
     evilr__include_iclasses(mod, RCLASS_SUPER(iclass));
     rb_include_module(mod, RBASIC_KLASS(iclass));
   }
+  rb_clear_cache_by_class(mod);
 }
 
 
@@ -475,6 +478,7 @@ static VALUE evilr_remove_singleton_classes(VALUE self) {
 static VALUE evilr_set_singleton_class(VALUE self, VALUE klass) {
   evilr__check_obj_and_class(self, klass);
   RCLASS_SET_SUPER(evilr__iclass_before_next_class(klass), rb_obj_class(self));
+  rb_clear_cache_by_class(klass);
   evilr__make_singleton(self, klass);
   return klass;
 }
@@ -545,6 +549,7 @@ static VALUE evilr_superclass_e(VALUE klass, VALUE super) {
   evilr__check_compatible_classes(klass, super);
   iclass = evilr__iclass_before_next_class(klass);
   RCLASS_SET_SUPER(iclass, super);
+  rb_clear_cache_by_class(klass);
   return super;
 }
 
