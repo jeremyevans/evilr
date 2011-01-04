@@ -40,6 +40,7 @@ struct BLOCK {
 #endif
 
 
+#define OBJECT_SIZE sizeof(struct RClass)
 #define RBASIC_SET_KLASS(o, c) (RBASIC(o)->klass = c)
 #define RBASIC_KLASS(o) (RBASIC(o)->klass)
 #define RBASIC_FLAGS(o) (RBASIC(o)->flags)
@@ -49,12 +50,10 @@ struct BLOCK {
 #ifdef RUBY19
 #define RCLASS_SET_SUPER(o, c) (RCLASS(o)->ptr->super = c)
 
-size_t OBJECT_SIZE = sizeof(VALUE) * 5;
 #else
 #define RCLASS_SET_SUPER(o, c) (RCLASS(o)->super = c)
 #define ROBJECT_IVPTR(o) (ROBJECT(o)->iv_tbl)
 
-size_t OBJECT_SIZE = sizeof(VALUE) * 2 + sizeof(unsigned long) + sizeof(void *) * 2;
 extern int ruby_safe_level;
 #endif
 
@@ -224,6 +223,9 @@ static VALUE evilr_swap(VALUE self, VALUE other) {
 }
 
 static VALUE evilr_swap_instance_variables(VALUE self, VALUE other) {
+#ifndef RUBY19
+  struct st_table *tmp;
+#endif
   evilr__check_immediates(self, other);
 
   switch(BUILTIN_TYPE(self)) {
@@ -258,7 +260,6 @@ bad_types:
 #else
   /* RClass and RObject have iv_tbl at same position in the structure
    * so no funny business is needed */
-  struct st_table *tmp;
   tmp = ROBJECT_IVPTR(self);
   ROBJECT(self)->iv_tbl = ROBJECT_IVPTR(other);
   ROBJECT(other)->iv_tbl = tmp;
