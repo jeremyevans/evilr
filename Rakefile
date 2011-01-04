@@ -1,7 +1,7 @@
 require "rake"
 require "rake/clean"
 
-CLEAN.include %w'*.core rdoc ext/evilr/Makefile ext/evilr/evilr.o ext/evilr/evilr.so lib tmp evilr-*.gem'
+CLEAN.include %w'*.core doc ext/evilr/Makefile ext/evilr/evilr.o ext/evilr/evilr.so lib tmp evilr-*.gem'
 
 desc "Build the gem"
 task :gem do

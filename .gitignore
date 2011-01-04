@@ -1,7 +1,7 @@
 /ext/evilr/Makefile
 /ext/evilr/evilr.o
 /ext/evilr/evilr.so
-/rdoc
+/doc
 /evilr-*.gem
 *.core
 /pkg
