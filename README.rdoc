@@ -118,13 +118,16 @@ specs:
 === Operating Systems/Platforms
 
 * OpenBSD (amd64, i386)
+* Linux (i386)
 
 === Compiler Versions
 
-* gcc (4.2.1)
+* gcc 4.2.1
+* gcc 4.4.5
 
 == Ruby Versions
 
+* ruby 1.8.6
 * ruby 1.8.7
 * ruby 1.9.2
 

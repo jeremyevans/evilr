@@ -39,6 +39,16 @@ struct BLOCK {
 };
 #endif
 
+/* Ruby 1.8.6 support */
+#ifndef RCLASS_SUPER
+#define RCLASS_SUPER(c) RCLASS(c)->super
+#endif
+#ifndef RCLASS_IV_TBL
+#define RCLASS_IV_TBL(c) RCLASS(c)->iv_tbl
+#endif
+#ifndef RCLASS_M_TBL
+#define RCLASS_M_TBL(c) RCLASS(c)->m_tbl
+#endif
 
 #define OBJECT_SIZE sizeof(struct RClass)
 #define RBASIC_SET_KLASS(o, c) (RBASIC(o)->klass = c)
@@ -512,9 +522,9 @@ static VALUE evilr_to_module(VALUE klass) {
   if (IS_SINGLETON_CLASS(klass)) {
     if((mod = evilr_singleton_class_instance(klass))) {
       mod = rb_singleton_class_clone(mod);
-    } else {
-      mod = rb_singleton_class_clone(klass);
       (void)evilr_detach_singleton(mod);
+    } else {
+      rb_raise(rb_eTypeError, "singleton class without attached instance");
     }
   } else {
     mod = rb_obj_clone(klass);

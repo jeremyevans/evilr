@@ -408,7 +408,7 @@ describe "Class#to_module" do
   specify "should handle singleton classes without modifying them" do
     o = Object.new
     o.instance_eval{def a() 1 end}
-    Class.new{include (class << o; self; end).to_module}.new.a.should == 1
+    Class.new{include((class << o; self; end).to_module)}.new.a.should == 1
     o.instance_eval{def a() super end}
     proc{o.a}.should raise_error(NoMethodError)
   end
@@ -417,7 +417,7 @@ describe "Class#to_module" do
     o = Object.new
     o.instance_eval{def a() 1 end}
     o.extend Module.new
-    Class.new{include (class << o; self; end).to_module}.new.a.should == 1
+    Class.new{include((class << o; self; end).to_module)}.new.a.should == 1
     o.instance_eval{def a() super end}
     proc{o.a}.should raise_error(NoMethodError)
   end
