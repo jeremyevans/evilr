@@ -113,6 +113,29 @@ specs:
 
   rake
 
+== Platforms Tested
+
+=== Operating Systems/Platforms
+
+* OpenBSD (amd64, i386)
+
+=== Compiler Versions
+
+* gcc (4.2.1)
+
+== Ruby Versions
+
+* ruby 1.8.7
+* ruby 1.9.2
+
+If your platform, compiler version, or ruby version is not listed
+above, please test and send me a report including:
+
+* Your operating system and platform (e.g. i386, x86_64/amd64)
+* Your compiler
+* Your ruby version
+* The output of rake
+
 == Author
 
 Jeremy Evans <code@jeremyevans.net>
