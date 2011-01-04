@@ -1,7 +1,7 @@
 EVILR_FILES = %w(MIT-LICENSE Rakefile README.rdoc) + Dir["{ext,spec}/**/*.{c,h,rb}"]
 EVILR_GEMSPEC = Gem::Specification.new do |s|
   s.name = 'evilr'
-  s.version = '0.1.0'
+  s.version = '1.0.0'
   s.platform = Gem::Platform::RUBY
   s.has_rdoc = true
   s.extra_rdoc_files = ["MIT-LICENSE", "README.rdoc", "ext/evilr/evilr.c"]
