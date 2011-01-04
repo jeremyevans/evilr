@@ -1,8 +1,8 @@
 = evilr
 
 evilr subverts ruby's runtime and lets you do things you shouldn't
-do, like changing the classes of objects.  It's inspired by evil.rb,
-but is a C extension as opposed to ruby code that uses DL.
+do, such as changing the classes of objects.  It's inspired by
+evil.rb, but is a C extension as opposed to ruby code that uses DL.
 
 == Why?
 
@@ -84,8 +84,8 @@ instance variables, or method tables).
   * self : Get the default receiver of the proc's methods
   * self= : Change the default receiver of the proc's methods
 * Empty
-  * A class with no superclass, only allocate, new, and initialize
-    defined.  More basic than even BasicObject.
+  * A class with no superclass, only allocate, new, initialize, and
+    superclass defined.  More basic than even BasicObject.
 
 == Good bugs
 
@@ -119,6 +119,7 @@ specs:
 
 * OpenBSD (amd64, i386)
 * Linux (i386)
+* Windows XP (i386)
 
 === Compiler Versions
 
