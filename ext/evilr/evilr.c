@@ -59,6 +59,8 @@ extern int ruby_safe_level;
 
 VALUE empty;
 ID evilr__attached;
+ID evilr__bind;
+ID evilr__clone;
 
 static void evilr__check_immediate(VALUE self) {
   if (SPECIAL_CONST_P(self)) {
@@ -568,12 +570,12 @@ static VALUE evilr_force_bind(VALUE self, VALUE obj) {
   struct METHOD *data;
 
   evilr__check_immediate(obj);
-  self = rb_funcall(self, rb_intern("clone"), 0);
+  self = rb_funcall(self, evilr__clone, 0);
   /* Data_Get_Struct seems to complain about types on 1.9,
    * so skip the type check. */
   data = (struct METHOD*)DATA_PTR(self);
   data->rclass = CLASS_OF(obj);
-  return rb_funcall(self, rb_intern("bind"), 1, obj);
+  return rb_funcall(self, evilr__bind, 1, obj);
 }
 
 static VALUE evilr_self(VALUE self) {
@@ -630,6 +632,8 @@ void Init_evilr(void) {
   rb_global_variable(&empty);
 
   evilr__attached = rb_intern("__attached__");
+  evilr__bind = rb_intern("bind");
+  evilr__clone = rb_intern("clone");
 
   rb_define_method(rb_cObject, "class=", evilr_class_e, 1);
   rb_define_method(rb_cObject, "evilr_debug_print", evilr_debug_print, 0);
