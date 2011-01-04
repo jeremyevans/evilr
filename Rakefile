@@ -11,13 +11,15 @@ end
 begin
   require 'rake/extensiontask'
   Rake::ExtensionTask.new('evilr')
+  dependencies = [:compile]
 rescue LoadError
+  dependencies = []
 end
 
 begin
   require "spec/rake/spectask"
 
-  Spec::Rake::SpecTask.new("spec" => :compile) do |t|
+  Spec::Rake::SpecTask.new("spec" => dependencies) do |t|
     t.spec_files = ["spec/evilr_spec.rb"]
   end
   task :default => :spec
@@ -26,7 +28,7 @@ rescue LoadError
 end
 
 desc "Start an IRB shell using the extension"
-task :irb => :compile do
+task :irb => dependencies do
   require 'irb'
   $:.unshift 'lib'
   require 'evilr'

@@ -1,0 +1,18 @@
+load File.join(File.dirname(File.expand_path(__FILE__)), 'Rakefile')
+
+ENV['RUBY_CC_VERSION'] = '1.8.6:1.9.2'
+require 'rake/extensiontask'
+load('evilr.gemspec')
+EVILR_FILES << 'lib/evilr.rb'
+Rake::ExtensionTask.new('evilr', EVILR_GEMSPEC) do |ext|
+  ext.cross_compile = true
+  ext.cross_platform = ['x86-mingw32', 'x86-mswin32-60']
+end
+
+desc "Create a fat Windows binary gem"
+task :crossgem do
+  Dir.mkdir('lib') unless File.directory?('lib')
+  File.open('lib/evilr.rb', 'wb'){|f| f.puts('require "#{RUBY_VERSION[0...3]}/evilr"')}
+  sh "rake -f Rakefile.cross cross native gem"
+  File.delete('lib/evilr.rb')
+end
