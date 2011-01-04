@@ -622,6 +622,7 @@ void Init_evilr(void) {
   rb_define_singleton_method(empty, "superclass", evilr_empty_superclass, 0);
   rb_define_method(empty, "initialize", evilr_empty_initialize, 0);
   RCLASS_SET_SUPER(empty, NULL);
+  rb_global_variable(&empty);
 
   evilr__attached = rb_intern("__attached__");
 
