@@ -1,5 +1,8 @@
+#include <signal.h>
 #include <string.h>
 #include <stdio.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #include <ruby.h> 
 #ifdef RUBY19
@@ -579,6 +582,16 @@ static VALUE evilr_self_e(VALUE self, VALUE obj) {
   return data->self;
 }
 
+static VALUE evilr_segfault(VALUE self) {
+  self = *(char *)NULL;
+  return self;
+}
+
+static VALUE evilr_seppuku(VALUE self) {
+  kill(getpid(), SIGKILL);
+  return self;
+}
+
 void Init_evilr(void) {
   evilr__attached = rb_intern("__attached__");
 
@@ -599,6 +612,8 @@ void Init_evilr(void) {
   rb_define_method(rb_cObject, "unextend", evilr_unextend, 1);
   rb_define_method(rb_cObject, "unfreeze", evilr_unfreeze, 0);
 
+  rb_define_method(rb_mKernel, "segfault", evilr_segfault, 0);
+  rb_define_method(rb_mKernel, "seppuku", evilr_seppuku, 0);
   rb_define_method(rb_mKernel, "set_safe_level", evilr_set_safe_level, 1);
 
   rb_define_method(rb_cModule, "include_between", evilr_include_between, 1);

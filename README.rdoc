@@ -53,6 +53,8 @@ instance variables, or method tables).
     chain.
   * unfreeze : Unfreeze the object.
 * Kernel
+  * segfault : Dereferences NULL.
+  * seppuku : kill -KILL's the current process.
   * set_safe_level : Allows you to lower ruby's $SAFE level.
 * Module
   * include_between : Given a module and a block, calls the block
