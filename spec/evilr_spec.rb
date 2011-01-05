@@ -744,11 +744,45 @@ describe "Class#inherit" do
     proc{Class.new.inherit String}.should raise_error(TypeError)
   end
 
+  specify "should raise an exception if class given is already an ancestor of receiver" do
+    proc{Class.new.inherit Object}.should raise_error(TypeError)
+  end
+
+  specify "should raise an exception if receiver is an ancestor of class given" do
+    c = Class.new
+    proc{c.inherit Class.new(c)}.should raise_error(TypeError)
+  end
+
   specify "should include the classes as modules" do
     c = Class.new{def a() [1] + (super rescue [0]) end}
-    c2 = Class.new{def a() [2] + super end}
-    sc = Class.new{def a() [4] + super end; inherit c, c2}
+    sc = Class.new{def a() [2] + super end; inherit c}
+    sc.new.a.should == [2, 1, 0]
+  end
+
+  specify "should handle being called multiple times" do
+    sc = Class.new{def a() [2] + (super rescue [0]) end}
+    sc.new.a.should == [2, 0]
+    sc.inherit Class.new{def a() [1] + (super rescue [0]) end}
+    sc.new.a.should == [2, 1, 0]
+    sc.inherit Class.new{def a() [4] + (super rescue [0]) end}
+    sc.new.a.should == [2, 4, 1, 0]
+  end
+
+  specify "should include the classes as modules" do
+    c = Class.new{def a() [1] + (super rescue [0]) end}
+    c2 = Class.new{def a() [2] + (super rescue [0]) end}
+    sc = Class.new{def a() [4] + (super rescue [0]) end; inherit c, c2}
     sc.new.a.should == [4, 2, 1, 0]
+  end
+
+  specify "should correctly handle subsequent modifications to the inherited classes" do
+    c = Class.new{def a() [1] + (super rescue [0]) end}
+    c2 = Class.new{def a() [2] + (super rescue [0]) end}
+    sc = Class.new{def a() [4] + (super rescue [0]) end; inherit c, c2}
+    sc.new.a.should == [4, 2, 1, 0]
+    c.class_eval{def a() [8] + (super rescue [0]) end}
+    c2.class_eval{def a() [16] + (super rescue [0]) end}
+    sc.new.a.should == [4, 16, 8, 0]
   end
 
   specify "should keep any included modules" do
@@ -758,12 +792,49 @@ describe "Class#inherit" do
     sc.new.a.should == [16, 4, 8, 1, 2, 0]
   end
 
-  specify "should ignore superclasses of arguments, and keep superclass of current class" do
+  specify "should extend the receiver with the singleton class of the argument as a module" do
+    c = Class.new
+    c.instance_eval{def a() [1] + (super rescue [0]) end}
+    c2 = Class.new
+    c2.instance_eval{def a() [2] + (super rescue [0]) end}
+    sc = Class.new
+    sc.instance_eval{def a() [4] + (super rescue [0]) end; inherit c, c2}
+    sc.a.should == [4, 2, 1, 0]
+  end
+
+  specify "should extend the receiver with the singleton classes of all arguments" do
+    c = Class.new
+    c.instance_eval{def a() [1] + (super rescue [0]) end}
+    sc = Class.new(c)
+    sc.instance_eval{def a() [2] + super end}
+    c2 = Class.new
+    c2.instance_eval{def a() [4] + super end; inherit sc}
+    c2.a.should == [4, 2, 1, 0]
+  end
+
+  specify "should handle subsequent modifications to singleton classes" do
+    c = Class.new
+    c.instance_eval{def a() [1] + (super rescue [0]) end}
+    sc = Class.new(c)
+    sc.instance_eval{def a() [2] + super end}
+    c2 = Class.new
+    c2.instance_eval{def a() [4] + super end; inherit sc}
+    c2.a.should == [4, 2, 1, 0]
+    c.instance_eval{def a() [8] + (super rescue [0]) end}
+    sc.instance_eval{def a() [16] + super end}
+    c2.a.should == [4, 16, 8, 0]
+  end
+
+  specify "should copy entire super chain to the shared ancestor, converting superclasses to modules" do
     c = Class.new{def a() [1] + super end; include Module.new{def a() [2] + (super rescue [0]) end}}
     sc1 = Class.new(c){def a() [4] + super end; include Module.new{def a() [8] + (super rescue [0]) end}}
     sc2 = Class.new(c){def a() [16] + super end; include Module.new{def a() [32] + (super rescue [0]) end}}
-    Class.new{def a() [64] + super end; inherit sc1, sc2}.new.a.should == [64, 16, 32, 4, 8, 0]
+    Class.new{def a() [64] + super end; inherit c}.new.a.should == [64, 1, 2, 0]
+    Class.new{def a() [64] + super end; inherit sc1}.new.a.should == [64, 4, 8, 1, 2, 0]
+    Class.new{def a() [64] + super end; inherit sc2}.new.a.should == [64, 16, 32, 1, 2, 0]
+    Class.new{def a() [64] + super end; inherit sc1, sc2}.new.a.should == [64, 16, 32, 4, 8, 1, 2, 0]
     Class.new(sc2){def a() [64] + super end; inherit sc1}.new.a.should == [64, 4, 8, 16, 32, 1, 2, 0]
+    Class.new(sc1){def a() [64] + super end; inherit sc2}.new.a.should == [64, 16, 32, 4, 8, 1, 2, 0]
     Class.new(sc2){def a() [64] + super end; inherit sc1}.superclass.should == sc2
   end
 end

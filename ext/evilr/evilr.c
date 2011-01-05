@@ -54,14 +54,17 @@ struct BLOCK {
 
 #define OBJECT_SIZE sizeof(struct RClass)
 #define RBASIC_SET_KLASS(o, c) (RBASIC(o)->klass = c)
+#define RCLASS_SET_M_TBL(c, t) (RCLASS(c)->m_tbl = t)
 #define RBASIC_KLASS(o) (RBASIC(o)->klass)
 #define RBASIC_FLAGS(o) (RBASIC(o)->flags)
 #define IS_SINGLETON_CLASS(o) (FL_TEST(o, FL_SINGLETON))
 #define HAS_SINGLETON_CLASS(o) (FL_TEST(RBASIC_KLASS(o), FL_SINGLETON))
 
 #ifdef RUBY19
+#define RCLASS_SET_IV_TBL(c, t) (RCLASS(c)->ptr->iv_tbl = t)
 #define RCLASS_SET_SUPER(o, c) (RCLASS(o)->ptr->super = c)
 #else
+#define RCLASS_SET_IV_TBL(c, t) (RCLASS(c)->iv_tbl = t)
 #define RCLASS_SET_SUPER(o, c) (RCLASS(o)->super = c)
 #define ROBJECT_IVPTR(o) (ROBJECT(o)->iv_tbl)
 extern int ruby_safe_level;
@@ -231,6 +234,44 @@ void evilr__include_iclasses(VALUE mod, VALUE iclass) {
     rb_include_module(mod, RBASIC_KLASS(iclass));
   }
   rb_clear_cache_by_class(mod);
+}
+
+void evilr__include_class(klass, super) {
+  /* Make copy as an iclass, probable memory leak of existing m_tbl */
+  VALUE c;
+  c = rb_class_new(rb_cObject);
+  FL_UNSET(c, T_MASK);
+  FL_SET(c, T_ICLASS);
+  if (!RCLASS_IV_TBL(super)) {
+    RCLASS_IV_TBL(super) = st_init_numtable();
+  }
+  RBASIC_SET_KLASS(c, super);
+  RCLASS_SET_M_TBL(c, RCLASS_M_TBL(super));
+  RCLASS_SET_IV_TBL(c, RCLASS_IV_TBL(super));
+  RCLASS_SET_SUPER(c, RCLASS_SUPER(klass));
+  RCLASS_SET_SUPER(klass, c);
+  rb_clear_cache_by_class(klass);
+  rb_clear_cache_by_class(super);
+  rb_clear_cache_by_class(c);
+}
+
+void evilr__include_iclass_or_class(VALUE klass, VALUE super) {
+  if (BUILTIN_TYPE(super) == T_ICLASS) {
+    rb_include_module(klass, RBASIC_KLASS(super));
+  } else if (BUILTIN_TYPE(super) == T_CLASS) {
+    evilr__include_class(klass, super);
+    evilr__include_class(rb_singleton_class(klass), rb_singleton_class(super));
+  } else {
+    rb_raise(rb_eTypeError, "non iclass or class encountered in super chain");
+  } 
+}
+
+void evilr__graft_super_chain(VALUE klass, VALUE super, VALUE stop) {
+  if (super && super != stop) {
+    evilr__graft_super_chain(klass, RCLASS_SUPER(super), stop);
+    evilr__include_iclass_or_class(klass, super);
+  }
+  rb_clear_cache_by_class(super);
 }
 
 /* Ruby methods */
@@ -803,6 +844,37 @@ static VALUE evilr_superclass_e(VALUE klass, VALUE super) {
   return super;
 }
 
+void evilr__check_ancestry(VALUE klass, VALUE super) {
+  VALUE c;
+  for (c = klass; c; c = RCLASS_SUPER(c)) {
+    if (c == super) {
+      rb_raise(rb_eTypeError, "class is already a superclass");
+    }
+  }
+}
+
+static VALUE evilr__first_common_ancestor(VALUE klass, VALUE super) {
+  long i, len;
+  klass = rb_funcall(klass, rb_intern("ancestors"), 0);
+  super = rb_funcall(super, rb_intern("ancestors"), 0);
+  klass = rb_ary_to_ary(rb_funcall(klass, rb_intern("&"), 1, super));
+  len = RARRAY_LEN(klass);
+  for (i = 0; i < len; i++) {
+    super = rb_ary_entry(klass, i);
+    if (BUILTIN_TYPE(super) == T_CLASS) {
+      return super;
+    }
+  }
+  return NULL;
+}
+
+void evilr__inherit_class(VALUE klass, VALUE super) {
+  evilr__check_compatible_classes(klass, super);
+  evilr__check_ancestry(klass, super);
+  evilr__check_ancestry(super, klass);
+  evilr__graft_super_chain(klass, super, evilr__first_common_ancestor(klass, super));
+}
+
 /* call-seq:
  *   inherit(*classes) -> self
  * 
@@ -813,8 +885,7 @@ static VALUE evilr_inherit(int argc, VALUE* argv, VALUE klass) {
   int i;
 
   for(i = 0; i < argc; i++) {
-    evilr__check_compatible_classes(klass, argv[i]);
-    rb_include_module(klass, evilr_to_module(argv[i]));
+    evilr__inherit_class(klass, argv[i]);
   }
 
   return klass;
