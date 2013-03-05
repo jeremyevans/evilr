@@ -133,6 +133,9 @@ specs:
 * ruby 1.9.2
 
 ruby 1.9.1 is not supported.  It mostly works but has spec failures.
+ruby 1.9.3+ is not supported.  The superclass pointer is starting in
+ruby 1.9.3 is hidden in an internal struct, so external libraries
+can no longer manipulate it.
 
 If your platform, compiler version, or ruby version is not listed
 above, please test and send me a report including:
