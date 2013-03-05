@@ -236,7 +236,7 @@ void evilr__include_iclasses(VALUE mod, VALUE iclass) {
   rb_clear_cache_by_class(mod);
 }
 
-void evilr__include_class(klass, super) {
+void evilr__include_class(VALUE klass, VALUE super) {
   /* Make copy as an iclass, probable memory leak of existing m_tbl */
   VALUE c;
   c = rb_class_new(rb_cObject);
